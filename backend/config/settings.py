@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from .logging_config import build_logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -103,3 +106,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {"geocode": "60/min", "plan": "6/min"},
 }
+
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                      "OPTIONS": {"MAX_ENTRIES": 2000}}}
+
+# Logging: LOG_LEVEL env var overrides the default (DEBUG when DEBUG is on, otherwise INFO).
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if DEBUG else "INFO").upper()
+LOGGING = build_logging(LOG_LEVEL)

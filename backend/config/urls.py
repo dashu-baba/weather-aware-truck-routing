@@ -14,9 +14,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import path
-from planner.views import HealthView
+from django.urls import include, path
 
 urlpatterns = [
-    path("api/health", HealthView.as_view()),
+    path("", include("planner.urls")),
 ]
+
