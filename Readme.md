@@ -12,7 +12,13 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 1. [Features](./docs/Features.md)
 2. [Rules](./docs/Rules.md)
 3. [Tech stack](./docs/TechStack.md)
-4. [Credits](#credits)
+4. [Running locally](#running-locally)
+5. [Credits](#credits)
+
+## Running locally
+ 
+**You'll need:** Python 3.12+, Node.js 20+, and a free TomTom API key from
+[developer.tomtom.com](https://developer.tomtom.com). Open-Meteo needs no key.
 
 ## Credits
  
