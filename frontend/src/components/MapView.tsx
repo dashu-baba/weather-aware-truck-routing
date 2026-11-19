@@ -13,6 +13,9 @@ import { attachHover, type HoverContext } from '../map/hover';
 import { isDebug } from '../hooks/useHeatfield';
 import { createTrucks } from '../map/trucks';
 import { parseUtc } from '../lib/format';
+import { createPlacePins } from '../map/places';
+import type { PlaceTarget, TripPlaces } from '../lib/places';
+import { initialTripPlaces } from '../hooks/tripPlacesReducer';
 
 // Vite must bundle the worker explicitly: MapLibre's relative default URL is
 // otherwise resolved inside Vite's optimized dependency directory in development.
@@ -28,12 +31,17 @@ type Props = {
   heatfield?: Heatfield | null;
   heatLayer?: HeatLayer;
   hour?: number;
+  places?: TripPlaces;
+  pickTarget?: PlaceTarget | null;
+  onPick?: (target: PlaceTarget, lat: number, lon: number) => void;
+  onCancelPick?: () => void;
   children?: ReactNode; // controls drawn over the map, such as the legend and the time bar
 };
 
 export function MapView({
   routes = EMPTY_ROUTES, result = null, interval = 25, focusId = null,
   heatfield = null, heatLayer = 'risk', hour = 0, children,
+  places = initialTripPlaces, pickTarget = null, onPick, onCancelPick,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -42,6 +50,8 @@ export function MapView({
   const fitted = useRef<RouteEntry[] | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const checkpointContext = useRef<{ result: PlanResult | null; interval: number }>({ result: null, interval: 25 });
+  const pins = useRef<ReturnType<typeof createPlacePins> | null>(null);
+  const pickContext = useRef({ target: pickTarget, onPick });
   const trucks = useRef<ReturnType<typeof createTrucks> | null>(null);
   const heatCanvas = useRef<HTMLCanvasElement | null>(null);
   const tooltip = useRef<HTMLDivElement>(null);
@@ -64,11 +74,18 @@ export function MapView({
           attributionControl: { compact: true },
         });
         mapRef.current = map;
+        map.getCanvas().style.cursor = pickContext.current.target ? 'crosshair' : '';
+        map.on('click', event => {
+          const context = pickContext.current;
+          if (context.target) context.onPick?.(context.target, event.lngLat.lat, event.lngLat.lng);
+        });
         map.on('load', () => {
           if (!map || controller.signal.aborted) return;
           addRouteLayers(map);
           addResultLayers(map);
+          pins.current = createPlacePins(map, (target, lat, lon) => pickContext.current.onPick?.(target, lat, lon));
           map.on('click', 'checkpoints', event => {
+            if (pickContext.current.target) return;
             const properties = event.features?.[0]?.properties;
             if (!properties || typeof properties.id !== 'string' || !Number.isInteger(properties.idx)) return;
             const context = checkpointContext.current;
@@ -81,8 +98,8 @@ export function MapView({
               .setDOMContent(checkpointPopup(route.label, checkpoint))
               .addTo(map);
           });
-          map.on('mouseenter', 'checkpoints', () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
-          map.on('mouseleave', 'checkpoints', () => { if (map) map.getCanvas().style.cursor = ''; });
+          map.on('mouseenter', 'checkpoints', () => { if (map) map.getCanvas().style.cursor = pickContext.current.target ? 'crosshair' : 'pointer'; });
+          map.on('mouseleave', 'checkpoints', () => { if (map) map.getCanvas().style.cursor = pickContext.current.target ? 'crosshair' : ''; });
           if (tooltip.current) hover.current = attachHover(map, tooltip.current, () => hoverContext.current);
           setReady(true);
         });
@@ -104,6 +121,8 @@ export function MapView({
       hover.current?.detach();
       hover.current = null;
       popupRef.current?.remove();
+      pins.current?.remove();
+      pins.current = null;
       map?.remove();
       mapRef.current = null;
     };
@@ -133,7 +152,7 @@ export function MapView({
     const empty = { type: 'FeatureCollection' as const, features: [] };
     map.getSource<maplibregl.GeoJSONSource>('route-risk')?.setData(result ? routePieces(result, interval) : empty);
     map.getSource<maplibregl.GeoJSONSource>('checkpoints')?.setData(result ? checkpointFeatures(result, interval) : empty);
-    map.getCanvas().style.cursor = '';
+    map.getCanvas().style.cursor = pickContext.current.target ? 'crosshair' : '';
   }, [ready, result, interval]);
 
   useEffect(() => {
@@ -160,6 +179,17 @@ export function MapView({
     });
     return () => cancelAnimationFrame(frame);
   }, [ready, routes, heatfield, hour]);
+
+  useEffect(() => {
+    pickContext.current = { target: pickTarget, onPick };
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = pickTarget ? 'crosshair' : '';
+    if (pickTarget) popupRef.current?.remove();
+  }, [ready, pickTarget, onPick]);
+
+  useEffect(() => {
+    if (ready) pins.current?.update(places);
+  }, [ready, places]);
 
   // The weather image is added when a heatmap arrives, replaced by the next plan's, and removed when a plan starts.
   useEffect(() => {
@@ -200,6 +230,12 @@ export function MapView({
     <section className="map-pane" aria-label="Trip map">
       <div className="map-container" ref={container} />
       <div className="map-badge"><span className="live-dot" /> WEATHER-AWARE ROUTING</div>
+      {pickTarget && (
+        <div className="map-pick-hint" role="status">
+          <span>Click the map to set the {pickTarget} · Esc to cancel</span>
+          <button type="button" onClick={onCancelPick} aria-label="Cancel map picking">Cancel</button>
+        </div>
+      )}
       {message && <p className="map-message" role="status">{message}</p>}
       <div className="heat-hover" ref={tooltip} hidden />
       {children}

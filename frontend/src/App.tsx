@@ -5,6 +5,7 @@ import { IntervalToggle } from './components/IntervalToggle';
 import { Recommendation } from './components/Recommendation';
 import { RouteCards } from './components/RouteCards';
 import { usePlan } from './hooks/usePlan';
+import { useTripPlaces } from './hooks/useTripPlaces';
 import { PlanStatus } from './components/PlanStatus';
 import { MapView } from './components/MapView';
 import { TripForm } from './components/TripForm';
@@ -16,6 +17,7 @@ import type { HeatLayer } from './map/heatfield';
 
 export default function App() {
   const { state, submit, retry } = usePlan();
+  const locations = useTripPlaces();
   const result = state.plan?.result ?? null;
   const [selection, setSelection] = useState<{ result: PlanResult | null; interval: number; routeId: string | null }>({
     result: null, interval: 25, routeId: null,
@@ -42,7 +44,9 @@ export default function App() {
             <p>PLAN WITH THE FORECAST AHEAD</p>
           </div>
         </header>
-        <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit} />
+        <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit}
+          places={locations.places} pickTarget={locations.pickTarget}
+          onPlaceChange={locations.select} onPick={locations.startPick} onSwap={locations.swap} />
         <PlanStatus state={state} interval={interval} onRetry={retry} />
         {result && (
           <section className="plan-results" aria-label="Scored routes">
@@ -67,8 +71,9 @@ export default function App() {
         </footer>
       </aside>
       <MapView routes={state.routes} result={result} interval={interval} focusId={focusId}
-        heatfield={heatfield} heatLayer={layer} hour={hour}>
-        {heatfield && <Legend layer={layer} />}
+        heatfield={heatfield} heatLayer={layer} hour={hour}
+        places={locations.places} pickTarget={locations.pickTarget} onPick={locations.pick} onCancelPick={locations.cancelPick}>
+        {heatfield && !locations.pickTarget && <Legend layer={layer} />}
         {state.phase === 'done' && !state.warning && (
           <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={layer}
             disabled={!heatfield} note={heatError ?? 'Loading the weather map…'}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Place, PlanRequest } from '../api/types';
 import { PlaceInput } from './PlaceInput';
+import type { PlaceTarget, TripPlaces } from '../lib/places';
 
 export function nextHourLocal(now = new Date()): string {
   const next = new Date(now);
@@ -14,11 +15,16 @@ type Props = {
   busy: boolean;
   hasPlan: boolean;
   onSubmit: (body: PlanRequest) => void;
+  places: TripPlaces;
+  pickTarget: PlaceTarget | null;
+  onPlaceChange: (target: PlaceTarget, place: Place | null) => void;
+  onPick: (target: PlaceTarget) => void;
+  onSwap: () => void;
 };
 
-export function TripForm({ busy, hasPlan, onSubmit }: Props) {
-  const [origin, setOrigin] = useState<Place | null>(null);
-  const [destination, setDestination] = useState<Place | null>(null);
+export function TripForm({ busy, hasPlan, onSubmit, places, pickTarget, onPlaceChange, onPick, onSwap }: Props) {
+  const origin = places.origin.place;
+  const destination = places.destination.place;
   const [departure, setDeparture] = useState(nextHourLocal);
   const [load, setLoad] = useState(42000);
 
@@ -34,15 +40,17 @@ export function TripForm({ busy, hasPlan, onSubmit }: Props) {
       });
     }}>
       <div className="section-heading"><h2>Your trip</h2><span>01 — PLAN</span></div>
-      <PlaceInput label="Origin" value={origin} onChange={setOrigin} />
+      <PlaceInput label="Origin" value={origin} onChange={place => onPlaceChange('origin', place)}
+        picking={pickTarget === 'origin'} onPick={() => onPick('origin')} warning={places.origin.warning} />
       <div className="swap-row">
         <span className="journey-line" />
         <button type="button" className="swap" aria-label="Swap origin and destination"
-          onClick={() => { setOrigin(destination); setDestination(origin); }}>
+          onClick={onSwap}>
           ⇄ Swap
         </button>
       </div>
-      <PlaceInput label="Destination" value={destination} onChange={setDestination} />
+      <PlaceInput label="Destination" value={destination} onChange={place => onPlaceChange('destination', place)}
+        picking={pickTarget === 'destination'} onPick={() => onPick('destination')} warning={places.destination.warning} />
       <label className="field-label" htmlFor="departure">Departure <span>your local time</span></label>
       <input id="departure" type="datetime-local" required value={departure}
         onChange={event => setDeparture(event.target.value)} />

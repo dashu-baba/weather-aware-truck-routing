@@ -1,4 +1,4 @@
-# Frontend — phases 1–6
+# Frontend — phases 1–7
 
 ```sh
 npm install
@@ -39,7 +39,16 @@ pauses playback; rapid inputs are coalesced into one animation frame. A new
 heatmap resets playback to hour 0, paused. Layer, interval and focus changes
 leave playback running.
 
-Map picking and draggable pins belong to phase 7.
+Use the 📍 button beside either place input to pick its location on the map.
+The crosshair and hint show which endpoint is being set; Escape, Cancel, or the
+same picker button cancels. A coordinate label appears immediately, then the
+address replaces it when `/api/reverse` returns. A/B pins are draggable and use
+the same lookup flow. Search selection moves the corresponding pin; clearing
+removes it and swap exchanges both locations.
+
+Outside-US or unknown reverse results show a soft warning, but planning stays
+available. If naming fails, the coordinate label stays usable. Location edits
+never replan automatically: select Re-plan explicitly to update an existing trip.
 
 ## Heatmap
 
@@ -65,6 +74,21 @@ Map picking and draggable pins belong to phase 7.
   an hour change moves the existing markers without changing GeoJSON sources.
 - `components/TimeBar.tsx`: accessible Play/Pause and slider pointer/keyboard pause.
 
+## Location picking
+
+- `hooks/useTripPlaces.ts`: shared form/map locations, picker target, Escape and swap.
+- `hooks/placeResolver.ts`: immediate coordinate labels, per-target request IDs and
+  AbortControllers, reverse naming and soft country/unknown-point warnings.
+- `hooks/tripPlacesReducer.ts`: location state and swaps that carry warning metadata.
+- `lib/places.ts`: location types and wrapped-longitude coordinate labels.
+- `map/places.ts`: A/B pin creation, position/label updates, drag-end callbacks and cleanup.
+
+New picks, typing, clear, search selection, swap and unmount invalidate obsolete
+lookups. Origin and destination resolve independently. A pending reverse reply
+cannot overwrite a newer choice or move a point to a snapped address coordinate.
+Picking takes priority over checkpoint popups, and the legend is temporarily
+hidden while picking so the hint remains readable on smaller screens.
+
 ## Planning lifecycle
 
 - `hooks/usePlan.ts`: reducer state, the saved Retry body, and cancellation on new submit/unmount.
@@ -86,7 +110,7 @@ route data or moving the map; each new submission fits its first routes once.
 
 - [x] `npm run build`: strict TypeScript and production bundling pass.
 - [x] `npm run lint`: no errors or warnings.
-- [x] `npm test`: 147 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
+- [x] `npm test`: 162 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
 - [x] Map appears before a trip, centered on the US, with one map canvas in StrictMode.
 - [x] MapLibre worker loads through Vite; the basemap tiles and labels render.
 - [x] Real Dallas/Atlanta place searches return through `/api/geocode`.
@@ -178,5 +202,30 @@ to the form's POST handler, so it did not start another weather job.
   arrival fading, play/pause, looping, seek bounds, marker reuse/removal and disabled controls.
 - [x] The mobile time bar fits without horizontal overflow; no browser console errors.
 
-No new dependencies were added for phases 2–6. The production build reports
+## Phase 7 review checks
+
+- [x] Picking works before a plan exists. The origin picker shows the crosshair/hint;
+  Escape cancels without making a request.
+- [x] A Dallas pick immediately shows `32.7767, -96.7970` and an A pin; the real reverse
+  response replaces the label with `1400 Young Street, Dallas, TX 75201`.
+- [x] Both pins are draggable. A real browser drag moved A and sent the new coordinates
+  to `/api/reverse`; a search selection then moved it to Dallas's search coordinates.
+- [x] Clearing removes its pin and disables submit when an endpoint is missing.
+- [x] Swap moves both locations/pins and preserves warning metadata.
+- [x] A real Toronto lookup shows the outside-US warning. An open-water lookup at
+  0,0 keeps the coordinate label and shows the unknown-point warning. Submit remains enabled.
+- [x] Simulated reverse 502 keeps the coordinate label and pin, without blocking planning.
+- [x] After loading a completed real plan, editing a location sends zero additional
+  plan POSTs and causes zero route/risk/checkpoint source updates. The button remains Re-plan.
+- [x] Picking over a checkpoint sets the new point without opening its popup.
+- [x] At mobile width the hint fits, the legend hides while picking, and there is no horizontal overflow.
+- [x] Unit tests cover stale/out-of-order replies, independent endpoint requests,
+  search/clear cancellation, swap/unmount cancellation, warning states, wrapped longitudes,
+  pin reuse/movement and cleanup. No browser console errors.
+
+The completed-plan check used a real cached GET response supplied to the test's
+POST handler; it did not start another weather job. Reverse-geocode checks used
+the real backend except for the explicitly simulated 502.
+
+No new dependencies were added for phases 2–7. The production build reports
 a bundle-size advisory for MapLibre; TypeScript compilation and bundling succeed.

@@ -6,9 +6,12 @@ type Props = {
   label: string;
   value: Place | null;
   onChange: (place: Place | null) => void;
+  picking: boolean;
+  onPick: () => void;
+  warning: string | null;
 };
 
-export function PlaceInput({ label, value, onChange }: Props) {
+export function PlaceInput({ label, value, onChange, picking, onPick, warning }: Props) {
   const id = useId();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchPlace[]>([]);
@@ -58,7 +61,7 @@ export function PlaceInput({ label, value, onChange }: Props) {
       <div className="place-control">
         <input id={id} role="combobox" autoComplete="off"
           placeholder={label === 'Origin' ? 'City or address to start' : 'Where are you heading?'}
-          value={text} aria-autocomplete="list" aria-expanded={suggestions} aria-controls={`${id}-list`}
+          value={text} aria-describedby={warning ? `${id}-warning` : undefined} aria-autocomplete="list" aria-expanded={suggestions} aria-controls={`${id}-list`}
           aria-activedescendant={suggestions && active >= 0 ? `${id}-option-${active}` : undefined}
           onFocus={() => {
             setOpen(true);
@@ -90,18 +93,30 @@ export function PlaceInput({ label, value, onChange }: Props) {
               if (results[active]) select(results[active]);
             }
           }} />
-        {text && (
-          <button type="button" className="clear" aria-label={`Clear ${label.toLowerCase()}`}
-            onClick={() => {
-              onChange(null);
+        <div className="place-actions">
+          {text && (
+            <button type="button" className="clear" aria-label={`Clear ${label.toLowerCase()}`}
+              onClick={() => {
+                onChange(null);
+                setQuery('');
+                setResults([]);
+                setOpen(false);
+                setError('');
+                setLoading(false);
+              }}>×</button>
+          )}
+          <button type="button" className="place-pick" aria-label={`Pick ${label.toLowerCase()} on map`}
+            aria-pressed={picking} title={`Pick ${label.toLowerCase()} on map`} onClick={() => {
               setQuery('');
               setResults([]);
               setOpen(false);
-              setError('');
               setLoading(false);
-            }}>×</button>
-        )}
+              setError('');
+              onPick();
+            }}><span aria-hidden="true">📍</span></button>
+        </div>
       </div>
+      {warning && <p className="place-warning" id={`${id}-warning`} role="status">{warning}</p>}
       {suggestions && (
         <div className="suggestions">
           <ul id={`${id}-list`} role="listbox" aria-label={`${label} suggestions`}>
