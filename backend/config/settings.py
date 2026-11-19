@@ -131,7 +131,12 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"geocode": "60/min", "plan": "6/min", "plan_status": "120/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "geocode": "60/min",
+        "reverse": "60/min",
+        "plan": "6/min",
+        "plan_status": "120/min",
+    },
     # Trusted proxies in front of the app. 0 = identify clients by REMOTE_ADDR only, so a spoofed
     # X-Forwarded-For can't dodge the throttle. Set to 1 behind a single proxy (e.g. Render).
     "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "0")),

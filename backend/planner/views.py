@@ -1,4 +1,5 @@
 import logging
+import math
 
 import requests
 from django.core.cache import cache
@@ -61,6 +62,57 @@ class GeocodeView(APIView):
         cache.set(key, hits, GEOCODE_CACHE_TTL_S)
         logger.info("geocode ok: %d result(s) (typeahead=%s)", len(hits), typeahead)
         return Response(hits)
+
+
+class ReverseGeocodeView(APIView):
+    """The label for a point picked on the map. It always answers with a label, so the form can fill in."""
+
+    throttle_scope = "reverse"
+
+    def get(self, request):
+        point = _parse_point(request.query_params)
+        if point is None:
+            return Response(
+                {"detail": "lat (-90 to 90) and lon (-180 to 180) are required numbers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        lat, lon = point
+        key = cache_key("rev:", [round(lat, 4) + 0.0, round(lon, 4) + 0.0])  # 4 decimals is about 11 m
+        place = cache.get(key)
+        if place is None:
+            try:
+                hit = tomtom.reverse_geocode(lat, lon)
+            except tomtom.TomTomError as exc:
+                logger.error("reverse geocode failed: %s", exc)
+                return Response({"detail": "Geocoding service failed."}, status=status.HTTP_502_BAD_GATEWAY)
+            except requests.RequestException as exc:
+                logger.error("reverse geocode request error: %s", type(exc).__name__)  # str(exc) has the key
+                return Response({"detail": "Geocoding service failed."}, status=status.HTTP_502_BAD_GATEWAY)
+            fallback = {"label": f"{round(lat, 4) + 0.0:.4f}, {round(lon, 4) + 0.0:.4f}", "country": None}
+            place = {"found": hit is not None, **(hit or fallback)}
+            cache.set(key, place, GEOCODE_CACHE_TTL_S)
+            logger.info("reverse geocode ok (found=%s)", place["found"])
+        # The point the user chose, not the first visitor of the cached cell.
+        return Response(
+            {
+                "label": place["label"],
+                "lat": lat,
+                "lon": lon,
+                "country": place["country"],
+                "found": place["found"],
+            }
+        )
+
+
+def _parse_point(params) -> tuple[float, float] | None:
+    """lat and lon from the query string as floats, or None if missing, not finite or out of range."""
+    try:
+        lat, lon = float(params["lat"]), float(params["lon"])
+    except (KeyError, ValueError):
+        return None
+    if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return round(lat, 6) + 0.0, round(lon, 6) + 0.0  # "+ 0.0" turns -0.0 into 0.0
 
 
 class PlanView(APIView):

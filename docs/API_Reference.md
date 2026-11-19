@@ -13,6 +13,20 @@ and cached for 1 day. `typeahead` is optional (`true` for autocomplete) and is p
 
 Limited to 60 requests a minute per client.
 
+### `GET /api/reverse?lat=<n>&lon=<n>`
+Names a point picked on the map, so the trip form can show "1400 Young Street, Dallas, TX" instead of coordinates.
+`lat` is -90 to 90 and `lon` is -180 to 180. It works anywhere in the world, not only in the US. Results are cached
+for 1 day per point (rounded to about 11 m).
+
+```json
+{ "label": "1400 Young Street, Dallas, TX 75201", "lat": 32.7767, "lon": -96.797, "country": "US", "found": true }
+```
+
+`lat` and `lon` echo the point you sent, not a snapped one. When TomTom knows no address there (open water,
+wilderness), the answer is still `200`, with `"found": false`, `"country": null` and the coordinates as the label
+(`"0.0000, 0.0000"`), so the form can always fill itself in. Missing, non-numeric or out-of-range values give `400`; a
+TomTom failure gives `502`. Limited to 60 requests a minute per client, separately from `/api/geocode`.
+
 ### `POST /api/plan`
 
 Starts a plan. The three truck routes come back within seconds so the map can draw them. The weather is

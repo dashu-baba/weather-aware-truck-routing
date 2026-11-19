@@ -68,6 +68,26 @@ def geocode(
     ]
 
 
+def reverse_geocode(lat: float, lon: float, *, session: requests.Session | None = None) -> dict | None:
+    """The nearest address to a point, for labelling a pin dropped on the map.
+
+    Returns None when TomTom knows no address there (open water, wilderness). Not limited to one country.
+    """
+    _require_key()
+    http = session or requests
+    url = f"{config.TOMTOM_REVERSE_URL}/{lat},{lon}.json"
+    started = time.monotonic()
+    r = http.get(url, params={"key": config.TOMTOM_API_KEY}, timeout=config.HTTP_TIMEOUT_S)
+    logger.debug("TomTom reverse geocode -> HTTP %s in %.2fs", r.status_code, time.monotonic() - started)
+    _raise_for(r)
+    addresses = r.json().get("addresses") or []
+    address = (addresses[0].get("address") or {}) if addresses else {}
+    label = address.get("freeformAddress")
+    if not label:
+        return None
+    return {"label": label, "country": address.get("countryCode")}
+
+
 def gross_weight_kg(load_lb: float) -> int:
     return round((load_lb + config.TRUCK_TARE_LB) * config.KG_PER_LB)
 

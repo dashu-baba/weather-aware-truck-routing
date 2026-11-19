@@ -76,6 +76,65 @@ def test_geocode_encodes_slashes_in_query():
     assert "A%2FB%20Street.json" in session.url
 
 
+def reverse_body(address=None):
+    return {
+        "summary": {"numResults": 1},
+        "addresses": [{"address": address or {}, "position": "32.77,-96.79"}],
+    }
+
+
+def test_reverse_geocode_returns_the_label_and_country_code():
+    address = {
+        "freeformAddress": "1400 Young Street, Dallas, TX 75201",
+        "countryCode": "US",
+        "streetName": "x",
+    }
+    session = FakeSession(FakeResponse(body=reverse_body(address)))
+
+    hit = tomtom.reverse_geocode(32.7767, -96.797, session=session)
+
+    assert hit == {"label": "1400 Young Street, Dallas, TX 75201", "country": "US"}
+
+
+def test_reverse_geocode_calls_the_reverse_endpoint_with_only_the_key():
+    session = FakeSession(FakeResponse(body=reverse_body({"freeformAddress": "x"})))
+
+    tomtom.reverse_geocode(32.7767, -96.797, session=session)
+
+    assert session.url == "https://api.tomtom.com/search/2/reverseGeocode/32.7767,-96.797.json"
+    assert session.params == {"key": "test-key-123"}  # no countrySet: a map pick can be anywhere
+    assert session.timeout == config.HTTP_TIMEOUT_S
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        reverse_body({"routeNumbers": []}),  # what TomTom returns for open water
+        reverse_body({"freeformAddress": ""}),
+        {"summary": {"numResults": 0}, "addresses": []},
+        {},
+    ],
+)
+def test_reverse_geocode_returns_none_when_there_is_no_address(body):
+    assert tomtom.reverse_geocode(0.0, 0.0, session=FakeSession(FakeResponse(body=body))) is None
+
+
+def test_reverse_geocode_country_is_none_when_tomtom_omits_it():
+    session = FakeSession(FakeResponse(body=reverse_body({"freeformAddress": "Somewhere"})))
+
+    assert tomtom.reverse_geocode(1.0, 1.0, session=session) == {"label": "Somewhere", "country": None}
+
+
+def test_reverse_geocode_requires_api_key_and_raises_on_http_errors(monkeypatch):
+    session = FakeSession(FakeResponse(status_code=403, body={"error": "Forbidden"}))
+    with pytest.raises(tomtom.TomTomError):
+        tomtom.reverse_geocode(1.0, 1.0, session=session)
+
+    monkeypatch.setattr(config, "TOMTOM_API_KEY", "")
+    with pytest.raises(tomtom.TomTomError, match="TOMTOM_API_KEY"):
+        tomtom.reverse_geocode(1.0, 1.0, session=FakeSession(FakeResponse(body={})))
+
+
 def test_geocode_requires_api_key(monkeypatch):
     monkeypatch.setattr(config, "TOMTOM_API_KEY", "")
     with pytest.raises(tomtom.TomTomError, match="TOMTOM_API_KEY"):

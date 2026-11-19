@@ -24,6 +24,7 @@ TOMTOM_API_KEY = os.getenv("TOMTOM_API_KEY", "")
 # Truck routing exists ONLY on the classic v1 endpoint. Orbis endpoints are car-only.
 TOMTOM_ROUTING_URL = "https://api.tomtom.com/routing/1/calculateRoute"
 TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search"
+TOMTOM_REVERSE_URL = "https://api.tomtom.com/search/2/reverseGeocode"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
 HTTP_TIMEOUT_S = 40  # TomTom cancels long alternative searches at ~30 s
