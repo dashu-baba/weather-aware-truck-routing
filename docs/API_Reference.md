@@ -1,7 +1,7 @@
 ## API reference
 
 ### `GET /api/health`
-`200 {"status": "ok"}`. Used by Render's health check.
+`200 {"status": "ok"}`. Used by the container health check.
 
 ### `GET /api/geocode?q=<text>&typeahead=true`
 Place search for the trip form. `q` must be at least 3 characters; results are worldwide, limited to 5,

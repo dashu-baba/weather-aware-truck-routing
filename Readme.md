@@ -1,5 +1,7 @@
 # Weather-Aware Truck Routing
- 
+
+[![CI/CD](https://github.com/dashu-baba/weather-aware-truck-routing/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/dashu-baba/weather-aware-truck-routing/actions/workflows/ci-cd.yml)
+
 **Weather-aware route planning for trucks.** 
 Enter an origin, a destination, a departure time and a load weight. 
 The app finds three truck routes, checks the forecast **at the moment the truck will reach each point**, 
@@ -18,8 +20,9 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 7. [Environment variables](#environment-variables)
 8. [API reference](./docs/API_Reference.md)
 9. [Testing](#testing)
-10. [Project structure](#project-structure)
-11. [Credits](#credits)
+10. [Deployment](#deployment)
+11. [Project structure](#project-structure)
+12. [Credits](#credits)
 
 ## Running locally
  
@@ -62,6 +65,21 @@ curl "http://localhost:8000/api/reverse?lat=32.7767&lon=-96.797"
 To plan a trip, `POST /api/plan` with an origin, a destination, a departure and a load, then poll the `plan_id` it
 returns. The [API reference](./docs/API_Reference.md) has the request and every field of the response.
 
+### Running with Docker
+
+The production stack (nginx, the API, the weather worker and the cleanup job) runs locally too. You need
+Docker and a TomTom key.
+
+```bash
+cd deploy
+cp .env.example .env                 # set IMAGE_OWNER=local, APP_DOMAIN=localhost, your TomTom key,
+                                     # DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+./scripts/make-local-cert.sh         # self-signed certificate for https://localhost
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml run --rm backend python manage.py migrate --noinput
+open https://localhost               # accept the browser's certificate warning
+```
+
 ## Environment variables
 
 **Backend (`backend/.env`)**
@@ -73,7 +91,7 @@ returns. The [API reference](./docs/API_Reference.md) has the request and every 
 | `DJANGO_SECRET_KEY` | in production | `…` | Django's signing key. Required when `DJANGO_DEBUG` is off. Generate with `python -c "import secrets; print(secrets.token_urlsafe(50))"`. |
 | `DJANGO_ALLOWED_HOSTS` | in production | `truckroute.example.com,localhost` | Comma-separated hostnames Django will serve. Defaults to `localhost`, `127.0.0.1`, `[::1]`. |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. Defaults to `DEBUG` locally and `INFO` otherwise. |
-| `NUM_PROXIES` | no | `1` | Trusted proxies in front of the app. Default `0`: clients are identified by their socket address, so a spoofed `X-Forwarded-For` can't dodge the throttle. Set `1` behind a single proxy such as Render. |
+| `NUM_PROXIES` | no | `1` | Trusted proxies in front of the app. Default `0`: clients are identified by their socket address, so a spoofed `X-Forwarded-For` can't dodge the throttle. Set `1` behind a single proxy such as nginx (the Docker stack does). |
 | `CORS_ALLOWED_ORIGINS` | no | `https://app.example.com` | Comma-separated browser origins allowed to call the API. Defaults to the Vite dev server (`http://localhost:5173`); an empty value allows no cross-origin access. |
 | `DATABASE_PATH` | no | `/var/data/app.sqlite3` | SQLite file for plan and weather-job records. Defaults to `backend/db.sqlite3`. |
 | `PLAN_DATA_DIR` | no | `/var/data/plans` | Folder for the JSON files the records point at (routes, weather, scored plans). Defaults to `<system temp>/weather-aware`. |
@@ -181,6 +199,13 @@ The frontend tests cover the API client and its error messages, the plan reducer
 (timing, cancellation, retries and the heatmap fallback) with fake timers, the result components, route
 interpolation and risk pieces, the focus styling and the time formatting.
 
+## Deployment
+
+The app runs on one Lightsail server in four Docker containers, behind Cloudflare. Terraform creates the server
+and DNS record, and GitHub Actions tests, builds and deploys every push to `main`. See
+[docs/Deployment.md](./docs/Deployment.md) for the architecture, the CI/CD pipeline, rollback, secrets, cost and
+teardown.
+
 ## Project structure
  
 ```
@@ -195,7 +220,10 @@ frontend/
   src/components/    TripForm, PlaceInput, PlanStatus, Recommendation, IntervalToggle, RouteCards, MapView
   src/map/           basemap, route and checkpoint GeoJSON, MapLibre layers, popups, palette
   src/lib/           time and distance formatting, route ranking helpers
-docs/                features, rules, assumptions, architecture, tech stack, API reference
+docs/                features, rules, assumptions, architecture, tech stack, API reference, deployment
+deploy/              Docker Compose files, server deploy script, local certificate script
+infra/terraform/     Lightsail server, firewall and Cloudflare DNS record
+.github/workflows/   CI/CD pipeline
 ```
 
 ## Credits
