@@ -103,7 +103,17 @@ REST_FRAMEWORK = {
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {"geocode": "60/min", "plan": "6/min"},
+    # Trusted proxies in front of the app. 0 = identify clients by REMOTE_ADDR only, so a spoofed
+    # X-Forwarded-For can't dodge the throttle. Set to 1 behind a single proxy (e.g. Render).
+    "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "0")),
 }
+
+# Browser origins allowed to call the API (comma-separated). Defaults to the Vite dev server.
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if origin.strip()
+]
 
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "OPTIONS": {"MAX_ENTRIES": 2000}}
