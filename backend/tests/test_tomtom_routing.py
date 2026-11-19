@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+import requests
 
 from routing import tomtom
 from routing.checkpoints import times_per_point
@@ -39,7 +40,10 @@ class FakeSession:
 
     def get(self, url, params, timeout):
         self.calls.append((url, list(params)))
-        return FakeResponse(self.payloads.pop(0))
+        payload = self.payloads.pop(0)
+        if isinstance(payload, Exception):
+            raise payload
+        return FakeResponse(payload)
 
 
 def shifted(payload, dlat):
@@ -113,6 +117,36 @@ def test_three_routes_tops_up_with_via_point_routes(raw):
     for _, params in session.calls[1:]:
         assert dict(params)["maxAlternatives"] == 0
         assert "alternativeType" not in dict(params)
+
+
+def test_main_route_timeout_is_raised_as_a_timeout_after_one_retry():
+    session = FakeSession(requests.Timeout("slow"), requests.Timeout("slow"))
+
+    with pytest.raises(requests.Timeout):
+        tomtom.three_routes(ORIGIN, DEST, "2026-11-20T09:00:00Z", 30_000, session=session)
+
+    assert [dict(params)["maxAlternatives"] for _, params in session.calls] == [2, 0]
+
+
+def test_main_route_retries_without_alternatives_after_a_timeout(raw):
+    main = {**raw, "routes": raw["routes"][:1]}
+    session = FakeSession(requests.Timeout("slow"), main, shifted(raw, 0.5), shifted(raw, -0.5))
+
+    routes, warnings = tomtom.three_routes(ORIGIN, DEST, "2026-11-20T09:00:00Z", 30_000, session=session)
+
+    assert len(routes) == 3
+    assert any("timed out" in w for w in warnings)
+
+
+def test_via_point_timeout_stops_the_top_up(raw):
+    main = {**raw, "routes": raw["routes"][:1]}
+    session = FakeSession(main, requests.Timeout("slow"))
+
+    routes, warnings = tomtom.three_routes(ORIGIN, DEST, "2026-11-20T09:00:00Z", 30_000, session=session)
+
+    assert len(routes) == 1
+    assert len(session.calls) == 2  # no further detours attempted
+    assert any("via-point route timed out" in w for w in warnings)
 
 
 def test_three_routes_raises_when_tomtom_returns_nothing():

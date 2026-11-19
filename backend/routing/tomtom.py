@@ -245,15 +245,17 @@ def three_routes(
     """Main entry: up to 3 distinct truck routes + warnings for the UI/logs."""
     warnings: list[str] = []
     resp = None
-    for alts in (config.MAX_ALTERNATIVES, 1, 0):  # shrink on timeout
+    timeout: requests.Timeout | None = None
+    for alts in (config.MAX_ALTERNATIVES, 0):  # the alternatives search is the slow part, so retry without it
         try:
             resp = calculate_route([origin, dest], depart_at, load_lb, max_alternatives=alts, session=session)
             break
-        except requests.Timeout:
+        except requests.Timeout as exc:
+            timeout = exc
             logger.warning("TomTom routing timed out with maxAlternatives=%d", alts)
             warnings.append(f"TomTom timed out with maxAlternatives={alts}; retrying with fewer")
     if resp is None:
-        raise TomTomError("TomTom routing timed out")
+        raise timeout  # callers map requests.Timeout to 504
     warnings += check_effective_settings(resp)
     routes = pick_distinct([parse_route(r) for r in resp.get("routes", [])])
     if not routes:
@@ -266,7 +268,12 @@ def three_routes(
             extra = calculate_route(
                 [origin, via, dest], depart_at, load_lb, max_alternatives=0, session=session
             )
-        except (requests.Timeout, TomTomError) as exc:
+        except requests.Timeout:
+            # TomTom is slow: return what we have instead of waiting out every remaining candidate.
+            logger.warning("via-point route timed out; skipping the remaining detours")
+            warnings.append("via-point route timed out; fewer than 3 routes returned")
+            break
+        except TomTomError as exc:
             logger.warning("via-point route failed: %s", exc)
             warnings.append(f"via-point route failed: {exc}")
             continue
