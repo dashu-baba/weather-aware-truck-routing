@@ -2,7 +2,7 @@
 
 - **Three truck routes** from TomTom's truck routing. The planner uses the truck's gross weight (cargo plus
   tare) and makes sure the three routes are genuinely different. They are drawn on the map within seconds.
-- **Place search.** Search a US place by name. The API can also name any point on a map (reverse geocoding).
+- **Place search.** Search a place by name, anywhere TomTom covers. The API can also name any point on a map (reverse geocoding).
 - **Weather at arrival time.** A checkpoint is placed every **10, 25 or 50 miles** (you choose). Each
   checkpoint gets the hourly forecast for the hour the truck is expected to be there, not the current weather.
 - **Load-aware risk.** Wind, rain and snow are classified into Low, Moderate, High, Severe or No Travel,

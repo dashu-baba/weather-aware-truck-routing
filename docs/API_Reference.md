@@ -4,7 +4,7 @@
 `200 {"status": "ok"}`. Used by Render's health check.
 
 ### `GET /api/geocode?q=<text>&typeahead=true`
-Place search for the trip form. `q` must be at least 3 characters; results are US-only, limited to 5,
+Place search for the trip form. `q` must be at least 3 characters; results are worldwide, limited to 5,
 and cached for 1 day. `typeahead` is optional (`true` for autocomplete) and is part of the cache key.
 
 ```json

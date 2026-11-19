@@ -42,10 +42,13 @@ def geocode(
     *,
     typeahead: bool = False,
     limit: int = 5,
-    country_set: str = "US",
+    country_set: str = "",
     session: requests.Session | None = None,
 ) -> list[dict]:
-    """Fuzzy Search. typeahead=True for autocomplete (debounce in the UI - every call costs quota)."""
+    """Fuzzy Search, worldwide unless country_set is given (e.g. "US,CA").
+
+    typeahead=True for autocomplete (debounce in the UI - every call costs quota).
+    """
     _require_key()
     http = session or requests
     url = f"{config.TOMTOM_SEARCH_URL}/{requests.utils.quote(query, safe='')}.json"

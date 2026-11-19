@@ -13,7 +13,7 @@ value there and update this page.
 | Routes | Three | One main route and up to two alternatives. A route that shares more than 85% of its length with another counts as the same route. |
 | Departure | One hour ago to seven days ahead | A time without an offset is read as UTC. Each departure minute is its own plan. |
 | Trip length | At most 72 hours of forecast | Longer trips are refused with `422` (`JOB_WINDOW_HOURS`). |
-| Region | US-first | Place search is limited to the US. Reverse geocoding and routing work anywhere, but the thresholds, tare weight and weight warning are US values. |
+| Region | Worldwide | Search, reverse geocoding and routing are not limited to a country. The thresholds (mph, inches per hour), the tare weight and the 80,000 lb warning are US values and are applied to every trip. |
 
 ### Travel time and weather timing
 

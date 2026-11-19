@@ -60,14 +60,20 @@ def test_geocode_handles_empty_results():
 def test_geocode_sends_expected_params():
     session = FakeSession(FakeResponse(body={"results": []}))
     tomtom.geocode("Dallas", typeahead=True, limit=3, session=session)
-    assert session.params == {"key": "test-key-123", "limit": 3, "typeahead": "true", "countrySet": "US"}
+    assert session.params == {"key": "test-key-123", "limit": 3, "typeahead": "true"}
     assert session.timeout == config.HTTP_TIMEOUT_S
 
 
-def test_geocode_omits_country_set_when_empty():
+def test_geocode_searches_worldwide_by_default():
     session = FakeSession(FakeResponse(body={"results": []}))
-    tomtom.geocode("Dallas", country_set="", session=session)
+    tomtom.geocode("Paris", session=session)
     assert "countrySet" not in session.params
+
+
+def test_geocode_can_still_limit_to_countries():
+    session = FakeSession(FakeResponse(body={"results": []}))
+    tomtom.geocode("Dallas", country_set="US,CA", session=session)
+    assert session.params["countrySet"] == "US,CA"
 
 
 def test_geocode_encodes_slashes_in_query():
