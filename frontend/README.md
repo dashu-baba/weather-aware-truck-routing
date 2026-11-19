@@ -1,4 +1,4 @@
-# Frontend — phases 1–4
+# Frontend — phases 1–5
 
 ```sh
 npm install
@@ -20,8 +20,31 @@ ETA, weather, UTC forecast hour, risk and reasons. Click a card to focus its rou
 click it again to return to the recommended route. Interval and focus changes
 are computed locally with no requests.
 
-The heatmap is fetched and stored; rendering it belongs to phase 5. Map picking
+When the heatmap arrives it is drawn under the routes, inside a dashed outline of
+the corridor. A time bar below the map has a 0–47 hour slider (hour 0 is the
+heatmap's start, shown in local time with the UTC time beside it) and a layer
+toggle: Risk, Wind, Gust, Rain and Snow. The legend follows the layer, and
+hovering over the corridor shows the value under the cursor, for example
+`Gust 41 mph · High · Fri 10:00 PM`. Moving the slider or changing the layer
+only redraws the image: it makes no request and rebuilds no GeoJSON. Add
+`?debug=1` to the address to log frame times to the console and to expose the
+renderer as `window.__heatfield`.
+
+Trucks that move with the slider and playback belong to phase 6. Map picking
 and draggable pins belong to phase 7.
+
+## Heatmap
+
+- `lib/risk.ts`: a TypeScript copy of `backend/routing/risk.py` (thresholds, load rules and the wind metric).
+  Risk pixels are classified from the interpolated weather and never by interpolating the integer levels.
+- `map/heatfield.ts`: the renderer. It rasterises the grid in Web Mercator so it lines up with the basemap,
+  interpolates bilinearly (row 0 is the south and cells without a forecast are skipped), clips to the corridor
+  polygon, keeps the last 60 frames and pre-renders the next and previous hour when the browser is idle.
+- `map/heatLayers.ts`: adds the image and the outline under the route layers, and swaps a frame into one canvas.
+- `map/hover.ts`: the readout beside the cursor, one update per animation frame, kept inside the map.
+- `components/TimeBar.tsx`, `components/Legend.tsx`: the slider, label, layer toggle and legend.
+- `hooks/useHeatfield.ts`: builds the renderer once the heatmap has loaded. A heatmap that cannot be drawn
+  becomes a message in the time bar, and the scored plan stays usable.
 
 ## Planning lifecycle
 
@@ -44,7 +67,7 @@ route data or moving the map; each new submission fits its first routes once.
 
 - [x] `npm run build`: strict TypeScript and production bundling pass.
 - [x] `npm run lint`: no errors or warnings.
-- [x] `npm test`: 63 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, and focus styling.
+- [x] `npm test`: 136 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
 - [x] Map appears before a trip, centered on the US, with one map canvas in StrictMode.
 - [x] MapLibre worker loads through Vite; the basemap tiles and labels render.
 - [x] Real Dallas/Atlanta place searches return through `/api/geocode`.
@@ -94,5 +117,27 @@ A fresh weather job returned the backend's busy message during this review. The
 result checks above used a previously completed real plan served by the backend,
 without another weather download.
 
-No new dependencies were added for phases 2–4. The production build reports
+## Phase 5 review checks
+
+Run in headless Chrome against a completed real Dallas → Atlanta plan (read-only; Open-Meteo's daily limit was
+used up, so a new weather download was not possible that day).
+
+- [x] The corridor outline and the weather image appear under the routes, and the Gust layer at hour 14 follows
+  the Gulf coast (Mercator alignment).
+- [x] The slider runs 0–47; the label reads `+0h · Fri, Nov 20, 12:00 AM (18:00 UTC)` and changes with the hour.
+- [x] The layer toggle switches Risk, Wind, Gust, Rain and Snow, and the legend title and labels follow it.
+- [x] Hover shows `Risk · Low · Fri 12:00 AM` inside the corridor and nothing outside it.
+- [x] Dragging the slider 0 → 47 → 0, switching all layers and moving the cursor made **0 requests**
+  (apart from basemap tiles).
+- [x] Frame times with `?debug=1` (software GL, small grid of 304 × 144 px): cold render median 2.6 ms, 95th
+  percentile 5.0 ms, maximum 6.6 ms; cached frames at most 0.1 ms; a full image swap (render and upload) median
+  0.2 ms, maximum 7 ms. These are well under the 30 ms and 5 ms targets for a grid this size; a 1,000-mile plan
+  has a larger grid and was not timed.
+- [x] No console errors, and no horizontal overflow at 390 px. On a phone the legend and time bar cover part
+  of the map.
+- [x] Unit tests: risk boundaries and load rules (copied from the proof of concept), bilinear sampling with
+  row 0 in the south, Mercator row alignment, the corridor clip, the 60-frame cache, idle pre-rendering, the
+  layer glue, the tooltip placement, the legend and the time bar.
+
+No new dependencies were added for phases 2–5. The production build reports
 a bundle-size advisory for MapLibre; TypeScript compilation and bundling succeed.

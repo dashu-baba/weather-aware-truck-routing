@@ -686,3 +686,78 @@ progress {
 @media (max-width: 360px) {
   .interval-control { align-items: flex-start; flex-direction: column; }
 }
+
+/* Heatmap controls drawn over the map: legend, time bar and the readout beside the cursor. */
+.heat-legend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  min-width: 150px;
+  max-width: 210px;
+  padding: 10px 12px;
+  background: #fffffff2;
+  border: 1px solid #d9e0d9;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px #25372c14;
+  font-size: 11.5px;
+  pointer-events: none;
+}
+
+.heat-legend strong { display: block; margin-bottom: 6px; font-size: 12px; }
+.heat-legend__row { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
+.heat-legend__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.heat-legend p { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+
+.time-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 34px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 9px 14px;
+  background: #fffffff2;
+  border: 1px solid #d9e0d9;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #25372c1a;
+}
+
+.time-bar__row { display: flex; align-items: center; gap: 12px; flex: 1 1 360px; min-width: 0; }
+.time-bar__slider { flex: 1; min-width: 120px; accent-color: var(--green); }
+.time-bar__label { font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.time-bar__layers { display: flex; gap: 4px; }
+
+.time-bar__layers button {
+  padding: 5px 10px;
+  color: var(--green);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.time-bar__layers button[aria-pressed='true'] { color: #fff; background: var(--green); border-color: var(--green); }
+
+.heat-hover {
+  position: absolute;
+  z-index: 3;
+  padding: 5px 9px;
+  color: #fff;
+  background: #1f2d28;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px #0003;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 799px) {
+  .heat-legend { top: 8px; right: 8px; min-width: 0; padding: 8px; font-size: 10.5px; }
+  .heat-legend p { display: none; }
+  .time-bar { left: 8px; right: 8px; bottom: 30px; padding: 8px 10px; }
+  .time-bar__label { font-size: 11.5px; white-space: normal; text-align: left; }
+}

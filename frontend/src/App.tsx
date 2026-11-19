@@ -8,6 +8,10 @@ import { usePlan } from './hooks/usePlan';
 import { PlanStatus } from './components/PlanStatus';
 import { MapView } from './components/MapView';
 import { TripForm } from './components/TripForm';
+import { Legend } from './components/Legend';
+import { TimeBar } from './components/TimeBar';
+import { useHeatfield } from './hooks/useHeatfield';
+import type { HeatLayer } from './map/heatfield';
 
 export default function App() {
   const { state, submit, retry } = usePlan();
@@ -22,6 +26,10 @@ export default function App() {
   const recommendation = result?.recommendation[String(interval)] ?? null;
   const focusId = selectedId ?? recommendation?.best ?? null;
   const busy = state.phase === 'posting' || state.phase === 'weather';
+  // The heatmap controls. Changing them never calls the server: every frame is drawn from the heatmap already loaded.
+  const [heat, setHeat] = useState<{ layer: HeatLayer; hour: number }>({ layer: 'risk', hour: 0 });
+  const { heatfield, error: heatError } = useHeatfield(result, state.heatmap);
+  const hour = heatfield ? Math.min(heat.hour, heatfield.hours - 1) : 0;
 
   return (
     <main className="app-shell">
@@ -57,7 +65,16 @@ export default function App() {
           Map © OpenFreeMap, © OpenStreetMap contributors
         </footer>
       </aside>
-      <MapView routes={state.routes} result={result} interval={interval} focusId={focusId} />
+      <MapView routes={state.routes} result={result} interval={interval} focusId={focusId}
+        heatfield={heatfield} heatLayer={heat.layer} hour={hour}>
+        {heatfield && <Legend layer={heat.layer} />}
+        {state.phase === 'done' && !state.warning && (
+          <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={heat.layer}
+            disabled={!heatfield} note={heatError ?? 'Loading the weather map…'}
+            onHour={value => setHeat(current => ({ ...current, hour: value }))}
+            onLayer={layer => setHeat(current => ({ ...current, layer }))} />
+        )}
+      </MapView>
     </main>
   );
 }

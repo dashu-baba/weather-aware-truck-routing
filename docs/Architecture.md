@@ -54,7 +54,8 @@ App ── usePlan (useReducer) ── runPlanLifecycle: POST ─► poll every 
  ├─ TripForm / PlaceInput    place search, departure, cargo weight
  ├─ PlanStatus               progress, stage label, early pick, error with Retry
  ├─ Recommendation, IntervalToggle, RouteCards     the result, for the selected spacing and focused route
- └─ MapView                  one MapLibre map: route lines, risk pieces, checkpoints, popups
+ ├─ TimeBar, Legend          the hour slider, layer toggle and legend for the heatmap
+ └─ MapView                  one MapLibre map: route lines, risk pieces, checkpoints, popups, the weather image
 ```
 
 - **One state machine.** `planReducer` is a pure function and `planLifecycle` is a plain async function that
@@ -62,5 +63,9 @@ App ── usePlan (useReducer) ── runPlanLifecycle: POST ─► poll every 
   rendering anything. Polls use `setTimeout` with the server's `poll_after_ms` and never overlap.
 - **The map is imperative.** `MapView` creates the map once and updates GeoJSON sources only when the routes, the
   result or the interval change. Focusing a route only changes paint and layout properties.
+- **The heatmap is drawn in the browser.** `map/heatfield.ts` turns the grid into an image in Web Mercator (so it
+  lines up with the basemap), classifies risk per pixel from the interpolated weather with a copy of the backend's
+  rules (`lib/risk.ts`), clips it to the corridor and keeps the last 60 frames. An hour or layer change swaps the
+  pixels of one canvas, so the slider is smooth and makes no request.
 - **Every API path** goes through `apiUrl()`, which adds `VITE_API_URL` (empty in development, where Vite proxies
   `/api` to Django), including the `heatmap_url` the API returns as a relative path.
