@@ -82,7 +82,8 @@ ruff check .                    # lint (config in backend/ruff.toml)
 Tests use fake HTTP sessions and fake clocks, so they never call TomTom or Open-Meteo. They cover cache
 keys, the TomTom client's response and error parsing, the geocode endpoint (validation, caching, 502
 handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
-handling), and logging, including a check that the API key never appears in log output.
+handling), the planning pipeline (preparing routes once and scoring them for different loads), and logging,
+including a check that the API key never appears in log output.
 
 ## Project structure
  

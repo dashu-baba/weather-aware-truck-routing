@@ -18,6 +18,11 @@ Basemap tiles ──────────────────────
   and finished plans.
 - **Rate limiting:** DRF throttles each client (60 geocodes and 6 plans a minute) so a public deployment
   can't use up the API quotas.
+- **The planner is three steps** (`backend/routing/pipeline.py`): `prepare` gets the routes and builds the
+  checkpoints and heatmap grid, `fetch_weather` loads every forecast location in one prefetch, and
+  `score_plan` turns weather into risk, ranking and heatmap for one load. Only the middle step is slow
+  and uses the weather quota. Scoring the same prepared plan again with another load is instant and makes
+  no network calls. `plan()` runs the three in order, so the API response is unchanged.
 - **Weather quota:** Open-Meteo counts every location as a call (600 a minute, 5,000 an hour, 10,000 a day on
   the free tier). The server follows the `X-RateLimit-*` response headers for the per-minute limit and keeps
   in-memory hourly and daily budgets below the real limits, returning 503 instead of waiting an hour.
