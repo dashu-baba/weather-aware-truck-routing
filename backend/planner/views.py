@@ -9,10 +9,17 @@ from rest_framework.views import APIView
 from routing import tomtom
 
 from .cache import cache_key
+from .serializers import PlanRequestSerializer
+from .services import PlanError, UpstreamTimeout, WeatherBusy, get_plan
 
 logger = logging.getLogger(__name__)
 
 GEOCODE_CACHE_TTL_S = 60 * 60 * 24
+
+PLAN_ERRORS = {
+    WeatherBusy: ("Weather service is busy. Try again in a minute.", status.HTTP_503_SERVICE_UNAVAILABLE),
+    UpstreamTimeout: ("An upstream service timed out. Try again.", status.HTTP_504_GATEWAY_TIMEOUT),
+}
 
 
 class HealthView(APIView):
@@ -48,3 +55,18 @@ class GeocodeView(APIView):
         cache.set(key, hits, GEOCODE_CACHE_TTL_S)
         logger.info("geocode ok: %d result(s) (typeahead=%s)", len(hits), typeahead)
         return Response(hits)
+
+
+class PlanView(APIView):
+    throttle_scope = "plan"
+
+    def post(self, request):
+        serializer = PlanRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            return Response(get_plan(serializer.validated_data))
+        except PlanError as exc:
+            detail, code = PLAN_ERRORS.get(
+                type(exc), ("Upstream service failed.", status.HTTP_502_BAD_GATEWAY)
+            )
+            return Response({"detail": detail}, status=code)
