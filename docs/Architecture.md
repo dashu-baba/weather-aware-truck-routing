@@ -14,8 +14,9 @@ Basemap tiles ──────────────────────
   only by the server, so the TomTom key never leaves the backend, and the server controls caching and quotas.
 - **The one exception is basemap tiles.** OpenFreeMap needs no key, and sending map tiles through Django
   would only slow the map down.
-- **Stateless:** there's no database. Django's in-memory cache holds geocoding results, weather series
-  and finished plans.
+- **Light state:** Django's in-memory cache holds geocoding results and finished plans. A small SQLite
+  database (`backend/db.sqlite3`) holds plan and weather-job records for the background plan flow, with
+  large JSON payloads in files under `PLAN_DATA_DIR`. `/api/plan` does not use it yet.
 - **Rate limiting:** DRF throttles each client (60 geocodes and 6 plans a minute) so a public deployment
   can't use up the API quotas.
 - **The planner is three steps** (`backend/routing/pipeline.py`): `prepare` gets the routes and builds the

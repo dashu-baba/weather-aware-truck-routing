@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 from .logging_config import build_logging
@@ -70,7 +71,20 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {}
+# SQLite holds the plan and weather-job records. WAL lets readers (status polls) run while a job writes.
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": os.getenv("DATABASE_PATH", str(BASE_DIR / "db.sqlite3")),
+        "OPTIONS": {"timeout": 20, "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;"},
+    }
+}
+
+# Big JSON payloads (routes, weather, scored plans) live in files, with a database row pointing at each.
+PLAN_DATA_DIR = Path(os.getenv("PLAN_DATA_DIR", Path(tempfile.gettempdir()) / "weather-aware"))
+# Forecasts are revised every few hours, so weather is kept for less time than finished plans.
+WEATHER_JOB_TTL_S = int(os.getenv("WEATHER_JOB_TTL_S", 6 * 3600))
+PLAN_TTL_S = int(os.getenv("PLAN_TTL_S", 24 * 3600))
 
 
 # Internationalization

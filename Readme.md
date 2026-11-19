@@ -32,6 +32,7 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env            # then set TOMTOM_API_KEY
+python manage.py migrate        # creates backend/db.sqlite3 (plan and weather-job records)
 python manage.py runserver      # http://localhost:8000/api/health
 ```
 
@@ -52,6 +53,10 @@ curl "http://localhost:8000/api/geocode?q=Dallas"
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. Defaults to `DEBUG` locally and `INFO` otherwise. |
 | `NUM_PROXIES` | no | `1` | Trusted proxies in front of the app. Default `0`: clients are identified by their socket address, so a spoofed `X-Forwarded-For` can't dodge the throttle. Set `1` behind a single proxy such as Render. |
 | `CORS_ALLOWED_ORIGINS` | no | `https://app.example.com` | Comma-separated browser origins allowed to call the API. Defaults to the Vite dev server (`http://localhost:5173`). |
+| `DATABASE_PATH` | no | `/var/data/app.sqlite3` | SQLite file for plan and weather-job records. Defaults to `backend/db.sqlite3`. |
+| `PLAN_DATA_DIR` | no | `/var/data/plans` | Folder for the JSON files the records point at (routes, weather, scored plans). Defaults to `<system temp>/weather-aware`. |
+| `WEATHER_JOB_TTL_S` | no | `21600` | Seconds a weather download is kept for reuse. Default 6 hours, because forecasts are revised. |
+| `PLAN_TTL_S` | no | `86400` | Seconds a finished plan is kept. Default 24 hours. |
 
 Logs go to stderr in the format `time LEVEL logger: message`. The TomTom API key is never written to the logs.
 
@@ -71,6 +76,19 @@ Open-Meteo's free tier allows 600 locations a minute, 5,000 an hour and 10,000 a
 
 The limits are in `backend/routing/config.py` (`OPEN_METEO_*`).
 
+### Database and plan files
+
+The planner is being moved to a background flow (routes first, weather scored afterwards), so the backend now
+has a small SQLite database (WAL mode, so status polls never wait for a writer):
+
+- **`WeatherJob`**: one weather download per trip and departure hour. The forecast does not depend on the load,
+  so every load on the same trip shares it (the key is origin, destination and the departure hour).
+- **`PlanRequest`**: one plan for a trip, departure hour **and load**. It points at its job.
+- Large payloads are JSON files under `PLAN_DATA_DIR`; rows only store the path.
+
+Run `python manage.py migrate` after pulling, and `python manage.py cleanup_plans` to delete expired records
+and their files (run it on a schedule, for example hourly). `/api/plan` does not use the database yet.
+
 ## Testing
 
 ```bash
@@ -82,7 +100,8 @@ ruff check .                    # lint (config in backend/ruff.toml)
 Tests use fake HTTP sessions and fake clocks, so they never call TomTom or Open-Meteo. They cover cache
 keys, the TomTom client's response and error parsing, the geocode endpoint (validation, caching, 502
 handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
-handling), the planning pipeline (preparing routes once and scoring them for different loads), and logging,
+handling), the planning pipeline (preparing routes once and scoring them for different loads), the plan and
+weather-job records (keys, expiry cleanup, file safety), and logging,
 including a check that the API key never appears in log output.
 
 ## Project structure
@@ -90,7 +109,7 @@ including a check that the API key never appears in log output.
 ```
 backend/
   config/            Django settings, URLs and logging setup
-  planner/           API views and URLs, caching helper, throttling
+  planner/           API views and URLs, caching helper, throttling, plan and weather-job records
   routing/           settings, TomTom and Open-Meteo clients, risk rules, ranking and the planning pipeline
   tests/             pytest suite (offline)
 frontend/
