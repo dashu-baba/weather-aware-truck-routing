@@ -1,0 +1,11 @@
+# Local test: build the images from source instead of pulling them. Use with IMAGE_OWNER=local.
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+services:
+  backend:
+    build: ../backend
+  worker:
+    build: ../backend
+  cleanup:
+    build: ../backend
+  web:
+    build: ../frontend

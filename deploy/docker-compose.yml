@@ -1,0 +1,55 @@
+name: truckroute
+
+x-python: &python
+  image: ghcr.io/${IMAGE_OWNER:?set IMAGE_OWNER}/truckroute-backend:${IMAGE_TAG:-latest}
+  env_file: .env
+  environment:
+    DJANGO_DEBUG: "0"
+    JOB_WORKER: external
+    DATABASE_PATH: /data/db.sqlite3
+    PLAN_DATA_DIR: /data/plans
+    NUM_PROXIES: "1"
+  volumes:
+    - app-data:/data
+  restart: unless-stopped
+
+services:
+  backend:
+    <<: *python
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    <<: *python
+    command: ["python", "manage.py", "run_jobs"]
+    init: true
+    depends_on:
+      backend: { condition: service_healthy }
+
+  cleanup:
+    <<: *python
+    command: ["sh", "-c", "while true; do python manage.py cleanup_plans; sleep 3600; done"]
+    init: true
+    depends_on:
+      backend: { condition: service_healthy }
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER:?set IMAGE_OWNER}/truckroute-web:${IMAGE_TAG:-latest}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  app-data:
