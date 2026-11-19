@@ -49,35 +49,112 @@ class Provider(Protocol):
     def fetch(self, keys: list[Key], start: datetime, end: datetime) -> dict[Key, dict]: ...
 
 
+HOUR_S = 3600
+DAY_S = 86400
+MAX_RESET_AHEAD_S = 120  # a Reset further away than this means a skewed clock: ignore the headers
+
+
 class RateLimited(RuntimeError):
-    pass
+    """Open-Meteo quota reached. `retry_after` is the suggested wait in seconds, when known."""
+
+    def __init__(self, message: str = "", retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class OpenMeteoProvider:
     """Real API. Returns {key: {"time": [...], "wind_speed_10m": [...], ...}}.
 
-    Throttles to config.OPEN_METEO_MAX_LOCATIONS_PER_MIN locations per rolling minute and
-    retries HTTP 429 after a pause. `sleep`/`clock` are injectable for tests.
+    Open-Meteo counts every location as one call (free tier: 600/min, 5,000/hour, 10,000/day per IP).
+    Three layers keep us inside it:
+      * minute: trust the X-RateLimit-Remaining / -Reset headers of the last response, which are the
+        server's own count. Before the first response, or when the headers are missing or implausible,
+        fall back to a local rolling window of config.OPEN_METEO_MAX_LOCATIONS_PER_MIN.
+      * hour / day: a local budget below the real limits. It raises RateLimited(retry_after=...)
+        instead of sleeping for an hour. The counters live in memory, so they reset on restart.
+      * HTTP 429: wait for the reset time and retry.
+    `sleep`, `clock` (monotonic) and `wall_clock` (epoch, compared with the Reset header) are injectable.
     """
 
-    def __init__(self, session: requests.Session | None = None, sleep=time.sleep, clock=time.monotonic):
+    def __init__(
+        self,
+        session: requests.Session | None = None,
+        sleep=time.sleep,
+        clock=time.monotonic,
+        wall_clock=time.time,
+    ):
         self.http = session or requests.Session()
-        self.sleep, self.clock = sleep, clock
-        self._sent: deque[tuple[float, int]] = deque()  # (timestamp, locations) in the last 60 s
+        self.sleep, self.clock, self.wall_clock = sleep, clock, wall_clock
+        self._history: deque[tuple[float, int]] = deque()  # (timestamp, locations) sent in the last 24 h
+        self._remaining: float | None = None  # from X-RateLimit-Remaining, reduced as we send
+        self._reset_at: float | None = None  # from X-RateLimit-Reset (epoch seconds)
+        self._minute_floor = float("-inf")  # history before this belongs to a window the server reset
 
     def _throttle(self, n: int) -> None:
-        limit = config.OPEN_METEO_MAX_LOCATIONS_PER_MIN
         while True:
             now = self.clock()
-            while self._sent and now - self._sent[0][0] >= 60:
-                self._sent.popleft()
-            used = sum(c for _, c in self._sent)
-            if used + n <= limit or not self._sent:
-                self._sent.append((now, n))
+            self._prune(now)
+            self._check_budgets(now, n)
+            wait = self._minute_wait(now, n)
+            if wait <= 0:
+                self._history.append((now, n))
+                if self._remaining is not None:
+                    self._remaining -= n
                 return
-            wait = 60 - (now - self._sent[0][0]) + 0.5
-            logger.info("weather: rate limit - waiting %.0f s (%d locations sent last minute)", wait, used)
+            logger.info("weather: rate limit - waiting %.0f s before sending %d locations", wait, n)
             self.sleep(wait)
+
+    def _prune(self, now: float) -> None:
+        while self._history and now - self._history[0][0] >= DAY_S:
+            self._history.popleft()
+
+    def _check_budgets(self, now: float, n: int) -> None:
+        for window, budget, name in (
+            (HOUR_S, config.OPEN_METEO_HOURLY_BUDGET, "hourly"),
+            (DAY_S, config.OPEN_METEO_DAILY_BUDGET, "daily"),
+        ):
+            inside = [(t, c) for t, c in self._history if now - t < window]
+            used = sum(c for _, c in inside)
+            if inside and used + n > budget:
+                retry_after = inside[0][0] + window - now
+                logger.warning("weather: %s budget reached (%d of %d locations)", name, used, budget)
+                raise RateLimited(
+                    f"Open-Meteo {name} budget of {budget} locations reached ({used} used)",
+                    retry_after=retry_after,
+                )
+
+    def _minute_wait(self, now: float, n: int) -> float:
+        """Seconds to wait before n more locations fit in the per-minute limit (0 = go ahead)."""
+        wall = self.wall_clock()
+        if self._remaining is not None and self._reset_at is not None:
+            if wall < self._reset_at:
+                return 0.0 if self._remaining >= n else self._reset_at - wall + 0.5
+            # The server's window rolled over: its count is fresh, so ignore what we sent before.
+            self._remaining = self._reset_at = None
+            self._minute_floor = now
+        recent = [(t, c) for t, c in self._history if now - t < 60 and t >= self._minute_floor]
+        if not recent or sum(c for _, c in recent) + n <= config.OPEN_METEO_MAX_LOCATIONS_PER_MIN:
+            return 0.0
+        return 60 - (now - recent[0][0]) + 0.5
+
+    def _read_rate_limit_headers(self, r) -> None:
+        headers = getattr(r, "headers", None) or {}
+        try:
+            remaining = float(headers["X-RateLimit-Remaining"])
+            reset_at = float(headers["X-RateLimit-Reset"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if reset_at - self.wall_clock() > MAX_RESET_AHEAD_S:
+            logger.warning("weather: ignoring rate-limit headers, reset time is implausibly far ahead")
+            return
+        self._remaining, self._reset_at = remaining, reset_at
+
+    def _reset_wait(self) -> float | None:
+        """Seconds until the server's minute window resets, when the headers told us."""
+        if self._reset_at is None:
+            return None
+        wait = self._reset_at - self.wall_clock()
+        return wait + 1 if wait > 0 else None
 
     def fetch(self, keys: list[Key], start: datetime, end: datetime) -> dict[Key, dict]:
         out: dict[Key, dict] = {}
@@ -107,6 +184,7 @@ class OpenMeteoProvider:
                 len(batch),
                 time.monotonic() - started,
             )
+            self._read_rate_limit_headers(r)
             if r.status_code == 429:
                 reason = r.text[:200]
                 if "inute" not in reason:  # hourly / daily limit: waiting a minute won't help
@@ -116,8 +194,9 @@ class OpenMeteoProvider:
                     )
                 if attempt == config.OPEN_METEO_RETRIES:
                     raise RateLimited(f"Open-Meteo rate limit after {attempt + 1} attempts: {reason}")
-                logger.warning("weather: HTTP 429 per-minute limit - waiting 65 s then retrying")
-                self.sleep(65)
+                wait = self._reset_wait() or 65
+                logger.warning("weather: HTTP 429 per-minute limit - waiting %.0f s then retrying", wait)
+                self.sleep(wait)
                 continue
             if not r.ok:
                 logger.error("weather: Open-Meteo returned HTTP %s", r.status_code)

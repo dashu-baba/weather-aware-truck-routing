@@ -50,8 +50,26 @@ curl "http://localhost:8000/api/geocode?q=Dallas"
 |---|---|---|---|
 | `TOMTOM_API_KEY` | yes | `abc123…` | TomTom routing + geocoding (server-side only) |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. Defaults to `DEBUG` locally and `INFO` otherwise. |
+| `NUM_PROXIES` | no | `1` | Trusted proxies in front of the app. Default `0`: clients are identified by their socket address, so a spoofed `X-Forwarded-For` can't dodge the throttle. Set `1` behind a single proxy such as Render. |
+| `CORS_ALLOWED_ORIGINS` | no | `https://app.example.com` | Comma-separated browser origins allowed to call the API. Defaults to the Vite dev server (`http://localhost:5173`). |
 
 Logs go to stderr in the format `time LEVEL logger: message`. The TomTom API key is never written to the logs.
+
+### Weather API limits
+
+Open-Meteo's free tier allows 600 locations a minute, 5,000 an hour and 10,000 a day per IP address, and
+**every location in a request counts as one call**. A plan needs roughly 650 locations for an 800-mile trip and
+1,400 for a cross-country one, so the server paces itself:
+
+- **Per minute:** it follows the `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers on every response
+  (the server's own count) and waits for the reset when a batch won't fit. Without usable headers it falls back
+  to a local limit of 500 locations a minute.
+- **Per hour and per day:** it keeps its own count and stops with a "weather service busy" error
+  (HTTP 503) at 4,500 an hour or 9,000 a day, below the real limits, instead of sleeping for an hour.
+  These counters live in memory, so they reset when the server restarts.
+- **HTTP 429:** it waits for the reset time and retries.
+
+The limits are in `backend/routing/config.py` (`OPEN_METEO_*`).
 
 ## Testing
 
@@ -61,9 +79,10 @@ python -m pytest -q             # offline tests, no network or API key needed
 ruff check .                    # lint (config in backend/ruff.toml)
 ```
 
-Tests use fake HTTP sessions, so they never call TomTom. They cover cache keys, the TomTom client's
-response and error parsing, the geocode endpoint (validation, caching, 502 handling), request
-throttling, and logging, including a check that the API key never appears in log output.
+Tests use fake HTTP sessions and fake clocks, so they never call TomTom or Open-Meteo. They cover cache
+keys, the TomTom client's response and error parsing, the geocode endpoint (validation, caching, 502
+handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
+handling), and logging, including a check that the API key never appears in log output.
 
 ## Project structure
  
@@ -71,7 +90,7 @@ throttling, and logging, including a check that the API key never appears in log
 backend/
   config/            Django settings, URLs and logging setup
   planner/           API views and URLs, caching helper, throttling
-  routing/           settings and the TomTom client (more to come: weather, risk, ranking, pipeline)
+  routing/           settings, TomTom and Open-Meteo clients, risk rules, ranking and the planning pipeline
   tests/             pytest suite (offline)
 frontend/
   src/api/           API client and types

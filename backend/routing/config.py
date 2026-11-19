@@ -29,7 +29,9 @@ OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 HTTP_TIMEOUT_S = 40  # TomTom cancels long alternative searches at ~30 s
 OPEN_METEO_BATCH = 50  # locations per Open-Meteo request
 # Open-Meteo counts EACH LOCATION as one call: free tier = 600/min, 5,000/hour, 10,000/day.
-OPEN_METEO_MAX_LOCATIONS_PER_MIN = 500  # stay safely under 600/min
+OPEN_METEO_MAX_LOCATIONS_PER_MIN = 500  # local fallback until the API reports its own limit (600/min)
+OPEN_METEO_HOURLY_BUDGET = 4500  # locations per rolling hour, under the real 5,000/hour limit
+OPEN_METEO_DAILY_BUDGET = 9000  # locations per rolling day, under the real 10,000/day limit
 OPEN_METEO_RETRIES = 3  # on HTTP 429, wait and retry
 
 # --- Units ------------------------------------------------------------------

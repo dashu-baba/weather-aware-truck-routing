@@ -18,6 +18,9 @@ Basemap tiles ──────────────────────
   and finished plans.
 - **Rate limiting:** DRF throttles each client (60 geocodes and 6 plans a minute) so a public deployment
   can't use up the API quotas.
+- **Weather quota:** Open-Meteo counts every location as a call (600 a minute, 5,000 an hour, 10,000 a day on
+  the free tier). The server follows the `X-RateLimit-*` response headers for the per-minute limit and keeps
+  in-memory hourly and daily budgets below the real limits, returning 503 instead of waiting an hour.
 - **One request, one complete plan.** The response holds the routes, the checkpoints for all three
   intervals, the scores, the recommendation and the 48-hour heatmap. Switching the interval, layer or
   hour **never calls the server**.
