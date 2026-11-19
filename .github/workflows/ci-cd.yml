@@ -1,0 +1,194 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Older runs of a pull request or branch are cancelled when a newer one starts. Runs on main are never
+# cancelled, so a deploy that is already running always finishes (the deploy job also has its own group).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt ruff
+      - run: ruff check .
+      - run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+  images:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [backend, frontend, terraform]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.owner.outputs.owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: owner
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push backend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.owner }}/truckroute-backend:sha-${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/truckroute-backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Build and push web
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: frontend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.owner }}/truckroute-web:sha-${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/truckroute-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.APP_DOMAIN }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+      IMAGE_OWNER: ${{ needs.images.outputs.owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          {
+            echo "Host deploy-target"
+            echo "  HostName $DEPLOY_HOST"
+            echo "  User $DEPLOY_USER"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  IdentitiesOnly yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+            echo "  StrictHostKeyChecking yes"
+          } > ~/.ssh/config
+
+      - name: Prepare server files
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+          CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
+          CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/deploy/certs"
+          {
+            printf 'APP_DOMAIN=%s\n' "$APP_DOMAIN"
+            printf 'IMAGE_OWNER=%s\n' "$IMAGE_OWNER"
+            printf 'DJANGO_SECRET_KEY=%s\n' "$DJANGO_SECRET_KEY"
+            printf 'DJANGO_ALLOWED_HOSTS=%s\n' "$APP_DOMAIN,localhost,127.0.0.1,backend"
+            printf 'CORS_ALLOWED_ORIGINS=\n'
+            printf 'TOMTOM_API_KEY=%s\n' "$TOMTOM_API_KEY"
+            printf 'LOG_LEVEL=INFO\n'
+          } > "$RUNNER_TEMP/deploy/.env"
+          printf '%s\n' "$CF_ORIGIN_CERT" > "$RUNNER_TEMP/deploy/certs/origin.pem"
+          printf '%s\n' "$CF_ORIGIN_KEY" > "$RUNNER_TEMP/deploy/certs/origin.key"
+
+      - name: Copy files to the server
+        run: |
+          scp deploy/docker-compose.yml deploy/scripts/deploy.sh deploy-target:/opt/truckroute/
+          scp "$RUNNER_TEMP/deploy/.env" deploy-target:/opt/truckroute/.env
+          scp "$RUNNER_TEMP/deploy/certs/origin.pem" "$RUNNER_TEMP/deploy/certs/origin.key" deploy-target:/opt/truckroute/certs/
+          ssh deploy-target 'chmod 600 /opt/truckroute/.env /opt/truckroute/certs/origin.key && chmod +x /opt/truckroute/deploy.sh'
+
+      - name: Log in to the registry on the server
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # shellcheck disable=SC2029  # $GITHUB_ACTOR is meant to expand here, on the runner
+          printf '%s' "$REGISTRY_TOKEN" | ssh deploy-target "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+
+      - name: Deploy
+        run: |
+          # shellcheck disable=SC2029  # $GITHUB_SHA is meant to expand here, on the runner
+          ssh deploy-target "cd /opt/truckroute && IMAGE_TAG=sha-$GITHUB_SHA ./deploy.sh"
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh deploy-target 'docker logout ghcr.io' || true
+          rm -rf "$RUNNER_TEMP/deploy" ~/.ssh/deploy_key ~/.ssh/known_hosts ~/.ssh/config
+
+      - name: Smoke test
+        run: |
+          curl --fail --silent --show-error --retry 10 --retry-delay 5 --retry-all-errors "https://$APP_DOMAIN/api/health"
+          curl --fail --silent --show-error "https://$APP_DOMAIN/" | grep -q '<div id="root"'
