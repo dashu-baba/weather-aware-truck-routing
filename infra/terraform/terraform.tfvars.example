@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (git-ignored) and fill in the placeholders.
+deploy_ssh_public_key = "ssh-ed25519 AAAA... truckroute-deploy"
+cloudflare_zone_id    = "<zone id from the Cloudflare dashboard>"
+app_domain            = "truckroute.example.com"
+
+# Optional overrides (defaults shown):
+# aws_region                 = "us-east-1"
+# availability_zone          = "us-east-1a"
+# bundle_id                  = "small_3_0"
+# ssh_allowed_cidrs          = ["0.0.0.0/0"]
+# restrict_web_to_cloudflare = true
+# ssh_allowed_ipv6_cidrs      = []
