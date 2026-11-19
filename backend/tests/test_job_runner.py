@@ -406,6 +406,35 @@ def test_the_worker_thread_requeues_stale_jobs_when_it_starts(settings):
         runner.stop()
 
 
+@pytest.mark.django_db(transaction=True)
+def test_a_running_worker_requeues_a_job_that_goes_stale_after_it_started(settings):
+    """A crash leaves a `running` row behind; a restart within JOB_STALE_S must not strand it forever."""
+    settings.JOB_STALE_S = 1
+    runner = jobs.JobRunner(FakeProvider(), poll_s=0.05)
+    runner.start()  # nothing is stale yet, so the one-off check at start finds nothing
+    try:
+        job = queued_job({"heatmap": points(2)})
+        WeatherJob.objects.filter(pk=job.pk).update(
+            status="running", heartbeat_at=dj_timezone.now() - timedelta(seconds=30)
+        )
+        assert wait_until_done(job) == "done"
+    finally:
+        runner.stop()
+
+
+def test_a_crash_between_batches_loses_at_most_the_batch_in_flight():
+    """SystemExit stands in for a killed process: it is not an Exception, so no cleanup code runs."""
+    job = queued_job({"heatmap": points(120)})
+    crashing = FakeProvider(fail_on=(2, SystemExit()))
+
+    with pytest.raises(SystemExit):
+        run(job, crashing)
+
+    saved = storage.read_json(str(storage.data_dir() / jobs.pool_name(job)))["series"]
+    assert len(saved) == 50  # the first batch reached the disk before the second was requested
+    assert WeatherJob.objects.get(pk=job.pk).done_locations == 50
+
+
 def test_run_jobs_command_processes_the_queue_and_exits():
     job = queued_job({"heatmap": points(2)})
     out = StringIO()

@@ -29,9 +29,10 @@ fetched and scored in the background; poll `GET /api/plan/<plan_id>` for progres
 
 - `lat` is -90 to 90 and `lon` is -180 to 180. Origin and destination must differ.
 - `departure` is an ISO 8601 time, from one hour ago to seven days ahead. A time without an offset is read as UTC.
-  Weather is matched by departure **hour**, so minutes do not change the plan's weather.
+  Each departure minute is its own plan, with its own routes and ETAs (seconds are ignored). The weather download is
+  shared by the whole departure **hour**, so a different minute in the same hour costs one routing call and no new weather.
 - `load_lb` is the cargo weight, 0 to 60,000 lb. The truck's own weight is added before it goes to TomTom.
-- Limited to 6 requests a minute per client. Sending the same request again returns the same `plan_id`.
+- Limited to 6 requests a minute per client. Sending the same request again (same trip, departure minute and load) returns the same `plan_id`.
 
 Returns `202 Accepted` while the weather is still being fetched, or `200 OK` when the plan is already complete
 (the same plan again, or another load on a trip whose weather is already in). Both use the body below.

@@ -35,7 +35,8 @@ from .storage import pool_name, work_name
 logger = logging.getLogger(__name__)
 
 STAGE_ORDER = ("checkpoints_25", "checkpoints_50", "checkpoints_10", "heatmap")
-SAVE_EVERY = 200  # locations fetched between saves of the pool file
+# Locations fetched between saves of the pool file. One batch, so a crash loses at most the batch in flight.
+SAVE_EVERY = 50
 
 
 def _key_str(key: LatLon) -> str:
@@ -321,6 +322,7 @@ class JobRunner:
                 try:
                     job = claim_next()
                     if job is None:
+                        recover_stale_jobs()  # a crashed process can leave a `running` row behind
                         self._wake.wait(self.poll_s)
                         self._wake.clear()
                         continue

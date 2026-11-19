@@ -24,6 +24,31 @@ def test_minutes_of_the_departure_do_not_matter_but_the_hour_does():
     assert job_key(DALLAS, ATLANTA, EIGHT) != job_key(DALLAS, ATLANTA, EIGHT + timedelta(hours=1))
 
 
+def test_the_plan_key_follows_the_departure_minute_but_the_job_key_does_not():
+    """ETAs and routes depend on the exact minute, so two minutes are two plans. The forecast is hourly."""
+    early, late = EIGHT + timedelta(minutes=5), EIGHT + timedelta(minutes=55)
+
+    assert plan_key(DALLAS, ATLANTA, early, 30_000) != plan_key(DALLAS, ATLANTA, late, 30_000)
+    assert job_key(DALLAS, ATLANTA, early) == job_key(DALLAS, ATLANTA, late)  # one weather download
+    assert plan_key(DALLAS, ATLANTA, early, 30_000).startswith(job_key(DALLAS, ATLANTA, early))
+
+
+def test_seconds_of_the_departure_do_not_make_a_new_plan():
+    base = EIGHT + timedelta(minutes=5)
+
+    assert plan_key(DALLAS, ATLANTA, base, 30_000) == plan_key(
+        DALLAS, ATLANTA, base + timedelta(seconds=59, microseconds=999), 30_000
+    )
+
+
+def test_the_plan_key_minute_is_read_in_utc_so_half_hour_zones_match():
+    india = timezone(timedelta(hours=5, minutes=30))  # 13:35 in India is 08:05 UTC
+
+    assert plan_key(DALLAS, ATLANTA, datetime(2026, 11, 20, 13, 35, tzinfo=india), 30_000) == plan_key(
+        DALLAS, ATLANTA, EIGHT + timedelta(minutes=5), 30_000
+    )
+
+
 def test_departure_is_compared_in_utc():
     eastern = timezone(timedelta(hours=-5))
 

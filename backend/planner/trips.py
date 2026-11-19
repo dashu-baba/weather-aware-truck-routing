@@ -2,7 +2,8 @@
 
 job key   origin + destination + departure hour. The forecast depends on where and when, never on the
           load, so every load on the same trip shares one weather job.
-plan key  the job key plus the load. TomTom takes the truck weight, so routes and scores are per load.
+plan key  the job key plus the departure minute and the load. TomTom takes the truck weight and the departure
+          time, so routes, ETAs and scores are per minute and per load.
 """
 
 from datetime import datetime, timezone
@@ -28,4 +29,10 @@ def job_key(origin: dict, destination: dict, departure: datetime) -> str:
 
 
 def plan_key(origin: dict, destination: dict, departure: datetime, load_lb: float) -> str:
-    return f"{job_key(origin, destination, departure)}|{load_lb:.1f}"
+    """One plan per trip, UTC departure minute and load.
+
+    The minute is in the key, unlike the job key, because the routes (TomTom's departAt) and every ETA
+    depend on it. Seconds are not: it keeps a double click on "now" one plan.
+    """
+    minute = departure.astimezone(timezone.utc).strftime("%M")
+    return f"{job_key(origin, destination, departure)}:{minute}|{load_lb:.1f}"

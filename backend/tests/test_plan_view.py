@@ -24,11 +24,15 @@ pytestmark = pytest.mark.django_db
 URL = "/api/plan"
 
 
+# One departure per test run, on a whole minute, so two calls to body() never straddle a minute boundary.
+DEPARTURE = (datetime.now(timezone.utc) + timedelta(hours=3)).replace(second=0, microsecond=0)
+
+
 def body(**overrides):
     data = {
         "origin": {"label": "Dallas", "lat": 32.7767, "lon": -96.797},
         "destination": {"label": "Atlanta", "lat": 33.749, "lon": -84.388},
-        "departure": (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat(),
+        "departure": DEPARTURE.isoformat(),
         "load_lb": 30_000,
     }
     data.update(overrides)
@@ -121,6 +125,34 @@ def test_the_same_request_is_the_same_plan_and_does_not_ask_tomtom_again(api, to
     assert first["plan_id"] == second["plan_id"]
     assert tomtom_routes.call_count == 1
     assert (PlanRequest.objects.count(), WeatherJob.objects.count()) == (1, 1)
+
+
+def test_a_different_departure_minute_is_a_new_plan_with_the_requested_departure(api, tomtom_routes):
+    """Asking for 14:55 must not hand back the plan that was computed for 14:05."""
+    hour = DEPARTURE.replace(minute=0)
+    early, late = hour + timedelta(minutes=5), hour + timedelta(minutes=55)
+    first = start(api, departure=early.isoformat()).json()
+    run_worker()
+
+    second = start(api, departure=late.isoformat())
+
+    data = second.json()
+    assert second.status_code == 200  # the hour's weather is already in, so it is scored at once
+    assert data["plan_id"] != first["plan_id"]
+    assert datetime.fromisoformat(data["result"]["meta"]["departure"]) == late
+    earlier = status_of(api, first["plan_id"]).json()
+    assert datetime.fromisoformat(earlier["result"]["meta"]["departure"]) == early
+    assert (PlanRequest.objects.count(), WeatherJob.objects.count()) == (2, 1)  # one weather download
+    assert tomtom_routes.call_count == 2
+    assert run_worker(Worker()).locations == 0
+
+
+def test_the_same_minute_with_different_seconds_is_the_same_plan(api, tomtom_routes):
+    first = start(api, departure=DEPARTURE.replace(second=5).isoformat()).json()
+    second = start(api, departure=DEPARTURE.replace(second=50).isoformat()).json()
+
+    assert first["plan_id"] == second["plan_id"]
+    assert tomtom_routes.call_count == 1
 
 
 def test_unknown_request_fields_do_not_make_a_different_plan(api):
