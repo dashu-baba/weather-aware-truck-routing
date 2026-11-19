@@ -7,15 +7,23 @@ from . import config
 
 logger = logging.getLogger(__name__)
 
+
 class TomTomError(RuntimeError):
     pass
 
-def geocode(query: str, *, typeahead: bool = False, limit: int = 5, country_set: str = "US",
-            session: requests.Session | None = None) -> list[dict]:
+
+def geocode(
+    query: str,
+    *,
+    typeahead: bool = False,
+    limit: int = 5,
+    country_set: str = "US",
+    session: requests.Session | None = None,
+) -> list[dict]:
     """Fuzzy Search. typeahead=True for autocomplete (debounce in the UI - every call costs quota)."""
     _require_key()
     http = session or requests
-    url = f"{config.TOMTOM_SEARCH_URL}/{requests.utils.quote(query, safe="")}.json"
+    url = f"{config.TOMTOM_SEARCH_URL}/{requests.utils.quote(query, safe='')}.json"
     params = {"key": config.TOMTOM_API_KEY, "limit": limit, "typeahead": str(typeahead).lower()}
     if country_set:
         params["countrySet"] = country_set
@@ -34,9 +42,11 @@ def geocode(query: str, *, typeahead: bool = False, limit: int = 5, country_set:
         if "position" in res
     ]
 
+
 def _require_key() -> None:
     if not config.TOMTOM_API_KEY:
         raise TomTomError("TOMTOM_API_KEY is not set (copy .env.example to .env)")
+
 
 def _raise_for(r: requests.Response) -> None:
     if r.ok:
@@ -47,9 +57,12 @@ def _raise_for(r: requests.Response) -> None:
         body = r.json()
         detailed = body.get("detailedError")
         err = body.get("error")
-        msg = (detailed.get("message") if isinstance(detailed, dict) else None) \
-            or (err.get("description") if isinstance(err, dict) else err) \
-            or body.get("errorText") or msg
+        msg = (
+            (detailed.get("message") if isinstance(detailed, dict) else None)
+            or (err.get("description") if isinstance(err, dict) else err)
+            or body.get("errorText")
+            or msg
+        )
     except (ValueError, AttributeError):
         pass
     raise TomTomError(f"TomTom HTTP {r.status_code}: {msg}")

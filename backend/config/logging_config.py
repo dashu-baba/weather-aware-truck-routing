@@ -5,6 +5,7 @@ stderr, which is where Gunicorn and Render collect logs.
 
 Never log full request URLs from the ``requests`` library: TomTom's API key is in the query string.
 """
+
 from __future__ import annotations
 
 APP_LOGGERS = ("planner", "routing")
