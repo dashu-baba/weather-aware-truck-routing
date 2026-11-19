@@ -63,7 +63,8 @@ def test_unknown_fields_do_not_bypass_the_cache(api, pipeline):
         (RateLimited("busy"), 503),
         (requests.Timeout("slow"), 504),
         (requests.ConnectionError("https://example.test?key=SECRET"), 502),
-        (tomtom.TomTomError("NO_ROUTE_FOUND"), 502),
+        (tomtom.TomTomError("TomTom HTTP 401: Forbidden", code="FORBIDDEN"), 502),
+        (tomtom.TomTomError("TomTom HTTP 500: oops"), 502),
         (RuntimeError("boom"), 502),
     ],
 )
@@ -74,6 +75,17 @@ def test_upstream_failures_map_to_status_codes(api, exc, status_code):
     assert response.status_code == status_code
     assert response.json().keys() == {"detail"}
     assert "SECRET" not in response.content.decode()
+
+
+@pytest.mark.parametrize("code", ["NO_ROUTE_FOUND", "MAP_MATCHING_FAILURE"])
+def test_unroutable_points_return_422(api, code):
+    error = tomtom.TomTomError(f"TomTom HTTP 400: {code}", code=code)
+    with mock.patch("planner.services.build_plan", side_effect=error):
+        response = api.post(URL, body(), format="json")
+
+    assert response.status_code == 422
+    assert response.json().keys() == {"detail"}
+    assert "No truck route" in response.json()["detail"]
 
 
 def test_failures_are_not_cached(api):

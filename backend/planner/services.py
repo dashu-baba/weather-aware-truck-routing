@@ -37,6 +37,10 @@ class UpstreamTimeout(PlanError):
     """An upstream request timed out."""
 
 
+class NoRoute(PlanError):
+    """TomTom can't route between the requested points (the caller's input, not an upstream fault)."""
+
+
 class UpstreamFailure(PlanError):
     """TomTom or Open-Meteo failed in any other way."""
 
@@ -70,7 +74,13 @@ def get_plan(data: dict) -> dict:
         # Log only the exception type: str(exc) contains the URL, and the URL contains the API key.
         logger.error("plan failed, request error: %s", type(exc).__name__)
         raise UpstreamFailure from exc
-    except (tomtom.TomTomError, RuntimeError) as exc:
+    except tomtom.TomTomError as exc:
+        if exc.code in tomtom.NO_ROUTE_CODES:
+            logger.warning("plan failed, no route: %s", exc.code)
+            raise NoRoute from exc
+        logger.error("plan failed: %s", exc)
+        raise UpstreamFailure from exc
+    except RuntimeError as exc:
         logger.error("plan failed: %s", exc)
         raise UpstreamFailure from exc
 

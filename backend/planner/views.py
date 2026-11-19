@@ -10,13 +10,17 @@ from routing import tomtom
 
 from .cache import cache_key
 from .serializers import PlanRequestSerializer
-from .services import PlanError, UpstreamTimeout, WeatherBusy, get_plan
+from .services import NoRoute, PlanError, UpstreamTimeout, WeatherBusy, get_plan
 
 logger = logging.getLogger(__name__)
 
 GEOCODE_CACHE_TTL_S = 60 * 60 * 24
 
 PLAN_ERRORS = {
+    NoRoute: (
+        "No truck route found between these points. Check that both are on or near a road.",
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+    ),
     WeatherBusy: ("Weather service is busy. Try again in a minute.", status.HTTP_503_SERVICE_UNAVAILABLE),
     UpstreamTimeout: ("An upstream service timed out. Try again.", status.HTTP_504_GATEWAY_TIMEOUT),
 }

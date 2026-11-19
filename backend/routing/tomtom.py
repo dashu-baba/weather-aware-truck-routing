@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 class TomTomError(RuntimeError):
-    pass
+    """TomTom failed. `code` is TomTom's detailedError.code (e.g. NO_ROUTE_FOUND) when it sent one."""
+
+    def __init__(self, message: str, *, code: str | None = None):
+        super().__init__(message)
+        self.code = code
+
+
+# Codes that mean the user's points can't be routed, as opposed to a TomTom or configuration failure.
+NO_ROUTE_CODES = frozenset({"NO_ROUTE_FOUND", "MAP_MATCHING_FAILURE"})
 
 
 def geocode(
@@ -249,7 +257,7 @@ def three_routes(
     warnings += check_effective_settings(resp)
     routes = pick_distinct([parse_route(r) for r in resp.get("routes", [])])
     if not routes:
-        raise TomTomError("TomTom returned no route")
+        raise TomTomError("TomTom returned no route", code="NO_ROUTE_FOUND")
 
     for via in via_point_candidates(routes[0]):  # top up to 3 with forced detours
         if len(routes) >= config.TARGET_ROUTES:
@@ -285,10 +293,13 @@ def _raise_for(r: requests.Response) -> None:
     if r.ok:
         return
     msg = r.text[:300]
+    code = None
     logger.warning("TomTom returned HTTP %s", r.status_code)
     try:
         body = r.json()
         detailed = body.get("detailedError")
+        if isinstance(detailed, dict):
+            code = detailed.get("code")
         err = body.get("error")
         msg = (
             (detailed.get("message") if isinstance(detailed, dict) else None)
@@ -298,4 +309,4 @@ def _raise_for(r: requests.Response) -> None:
         )
     except (ValueError, AttributeError):
         pass
-    raise TomTomError(f"TomTom HTTP {r.status_code}: {msg}")
+    raise TomTomError(f"TomTom HTTP {r.status_code}: {msg}", code=code)

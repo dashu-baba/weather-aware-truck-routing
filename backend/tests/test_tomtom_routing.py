@@ -118,5 +118,35 @@ def test_three_routes_tops_up_with_via_point_routes(raw):
 def test_three_routes_raises_when_tomtom_returns_nothing():
     session = FakeSession({"routes": [], "report": {}})
 
-    with pytest.raises(tomtom.TomTomError, match="no route"):
+    with pytest.raises(tomtom.TomTomError, match="no route") as info:
         tomtom.three_routes(ORIGIN, DEST, "2026-11-20T09:00:00Z", 30_000, session=session)
+
+    assert info.value.code == "NO_ROUTE_FOUND"
+
+
+class ErrorResponse:
+    ok = False
+    status_code = 400
+    text = "{}"
+
+    def __init__(self, body):
+        self.body = body
+
+    def json(self):
+        return self.body
+
+
+def test_error_response_keeps_tomtoms_error_code():
+    body = {"detailedError": {"code": "NO_ROUTE_FOUND", "message": "Cannot find a route"}}
+
+    with pytest.raises(tomtom.TomTomError, match="Cannot find a route") as info:
+        tomtom._raise_for(ErrorResponse(body))
+
+    assert info.value.code == "NO_ROUTE_FOUND"
+
+
+def test_error_response_without_detail_has_no_code():
+    with pytest.raises(tomtom.TomTomError) as info:
+        tomtom._raise_for(ErrorResponse({"error": {"description": "bad key"}}))
+
+    assert info.value.code is None
