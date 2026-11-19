@@ -1,4 +1,4 @@
-# Frontend — phases 1–3
+# Frontend — phases 1–4
 
 ```sh
 npm install
@@ -14,9 +14,14 @@ routes while weather scoring continues. The panel shows progress, stage labels,
 and the early recommendation for 25-mile checkpoints. Retry re-posts the original
 request, even if form values have since changed.
 
-Phase 3 fetches and stores the completed result and heatmap. Checkpoints, cards,
-interval selection and route focus belong to phase 4; heatmap rendering belongs
-to phase 5. Map picking and draggable pins belong to phase 7.
+Completed plans show the recommended route, ranked cards, checkpoint spacing,
+and risk-coloured route pieces and checkpoints. Click a checkpoint for its local
+ETA, weather, UTC forecast hour, risk and reasons. Click a card to focus its route;
+click it again to return to the recommended route. Interval and focus changes
+are computed locally with no requests.
+
+The heatmap is fetched and stored; rendering it belongs to phase 5. Map picking
+and draggable pins belong to phase 7.
 
 ## Planning lifecycle
 
@@ -25,7 +30,11 @@ to phase 5. Map picking and draggable pins belong to phase 7.
 - `hooks/planLifecycle.ts`: sequential `setTimeout` polls using each response's `poll_after_ms`;
   failed/404 handling; heatmap 409 retries every 2 seconds, at most ten retries after the initial fetch.
 - `components/PlanStatus.tsx`: posting/progress/early pick, readable errors with Retry, and soft heatmap warnings.
-- `map/geometry.ts` and `map/layers.ts`: full-route GeoJSON and MapLibre styling ported from the POC.
+- `map/geometry.ts`: full-route GeoJSON, binary-search interpolation, checkpoint stretches and point features ported from the POC.
+- `map/layers.ts`: full-route/risk/checkpoint layers and focus-only paint/layout updates.
+- `map/popup.ts`: checkpoint popups built with DOM text nodes for API strings.
+- `components/IntervalToggle.tsx`, `Recommendation.tsx`, `RouteCards.tsx`: local interval selection, recommendation explanations and ranked route cards.
+- `lib/routes.ts`, `lib/format.ts`: risk-mile distributions, ranking, local/UTC times and duration formatting.
 
 A new submission aborts the old request and clears its timer. An unavailable
 heatmap leaves the scored plan usable. Polls update progress without rebuilding
@@ -35,7 +44,7 @@ route data or moving the map; each new submission fits its first routes once.
 
 - [x] `npm run build`: strict TypeScript and production bundling pass.
 - [x] `npm run lint`: no errors or warnings.
-- [x] `npm test`: 39 tests cover API errors, basemap fallback, reducer transitions, polling/cancellation, status rendering, and route coordinates.
+- [x] `npm test`: 63 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, and focus styling.
 - [x] Map appears before a trip, centered on the US, with one map canvas in StrictMode.
 - [x] MapLibre worker loads through Vite; the basemap tiles and labels render.
 - [x] Real Dallas/Atlanta place searches return through `/api/geocode`.
@@ -62,5 +71,28 @@ route data or moving the map; each new submission fits its first routes once.
   stale responses, timer cleanup, and heatmap retry exhaustion with a soft warning.
 - [x] Browser console has no errors; data requests stay within `/api/*` and `tiles.openfreemap.org`.
 
-No new dependencies were added for phases 2 or 3. The production build reports
+## Phase 4 review checks
+
+- [x] A real completed Dallas → Atlanta plan shows three cards in recommendation order,
+  default 25-mile checkpoints and the route recommendation/reason.
+- [x] 25-mile spacing: 105 route pieces and 108 checkpoints; 50-mile: 53 / 56;
+  10-mile: 260 / 263 (including all three routes).
+- [x] Interval changes update only route-risk and checkpoint data, without refitting the map.
+- [x] Card focus updates paint/layout only; no GeoJSON source updates. Clicking the
+  same card again returns focus to the recommendation.
+- [x] Interval/focus changes trigger zero network requests in the browser.
+- [x] Checkpoint click shows the route, mile, local ETA, wind/gust, rain/snow,
+  UTC forecast hour and coloured risk; hover shows a pointer cursor.
+- [x] Switching intervals closes the old popup and uses the new checkpoint indexes.
+- [x] Missing forecast text and No Travel popup rendering work; API strings remain
+  literal text, including strings containing HTML.
+- [x] Component tests cover all-blocked/null recommendations, BEST/NO TRAVEL tags,
+  weighted risk bars, absent scoring data, and zero-mile distributions.
+- [x] Mobile results have no horizontal overflow; the map stays above the panel at 55vh.
+
+A fresh weather job returned the backend's busy message during this review. The
+result checks above used a previously completed real plan served by the backend,
+without another weather download.
+
+No new dependencies were added for phases 2–4. The production build reports
 a bundle-size advisory for MapLibre; TypeScript compilation and bundling succeed.
