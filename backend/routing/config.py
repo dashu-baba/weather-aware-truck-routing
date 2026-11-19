@@ -7,17 +7,10 @@ Change a value here -> update that table too.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-try:  # optional: load poc/backend/.env or repo-root .env if python-dotenv is installed
-    from dotenv import load_dotenv
+from config.env import load_env_files
 
-    _here = Path(__file__).resolve()
-    for candidate in (_here.parents[1] / ".env", _here.parents[2] / ".env"):
-        if candidate.exists():
-            load_dotenv(candidate)
-except ImportError:  # pragma: no cover
-    pass
+load_env_files()
 
 # --- API keys / endpoints -------------------------------------------------
 TOMTOM_API_KEY = os.getenv("TOMTOM_API_KEY", "")

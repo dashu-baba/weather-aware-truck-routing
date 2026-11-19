@@ -14,22 +14,28 @@ import os
 import tempfile
 from pathlib import Path
 
-from .logging_config import build_logging
+from .env import env_bool, env_list, load_env_files, resolve_secret_key
+
+load_env_files()  # first, so DJANGO_DEBUG and friends from a local .env are seen below
+
+from .logging_config import build_logging  # noqa: E402
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Production-safe by default: DEBUG is off unless DJANGO_DEBUG=1 (set it in a local .env).
+DEBUG = env_bool("DJANGO_DEBUG", False)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-n50kka^2uc-#vya%kew7_pcxt((=n(m1nqml6=5%6w(_&suej^"
+# Required when DEBUG is off; a fixed dev-only key is used when DEBUG is on.
+SECRET_KEY = resolve_secret_key(DEBUG, os.getenv("DJANGO_SECRET_KEY"))
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ["localhost", "127.0.0.1", "[::1]"])
 
-ALLOWED_HOSTS = []
+# nginx terminates TLS and forwards the scheme. No SECURE_SSL_REDIRECT: nginx redirects, and the
+# container health check calls Django over plain HTTP.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_CONTENT_TYPE_NOSNIFF = True
 
 
 # Application definition
@@ -58,8 +64,6 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -143,11 +147,8 @@ REST_FRAMEWORK = {
 }
 
 # Browser origins allowed to call the API (comma-separated). Defaults to the Vite dev server.
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
-    if origin.strip()
-]
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173"])
+# An empty CORS_ALLOWED_ORIGINS means no cross-origin access (production is same-origin).
 
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "OPTIONS": {"MAX_ENTRIES": 2000}}

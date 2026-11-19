@@ -32,7 +32,7 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # then set TOMTOM_API_KEY
+cp .env.example .env            # then set TOMTOM_API_KEY (it already has DJANGO_DEBUG=1 for local use)
 python manage.py migrate        # creates backend/db.sqlite3 (plan and weather-job records)
 python manage.py runserver      # http://localhost:8000/api/health
 ```
@@ -69,9 +69,12 @@ returns. The [API reference](./docs/API_Reference.md) has the request and every 
 | Variable | Required | Example | Purpose |
 |---|---|---|---|
 | `TOMTOM_API_KEY` | yes | `abc123…` | TomTom routing + geocoding (server-side only) |
+| `DJANGO_DEBUG` | locally | `1` | Debug mode, off by default. Set `1` in your local `.env`; without it Django refuses to start unless `DJANGO_SECRET_KEY` is set. |
+| `DJANGO_SECRET_KEY` | in production | `…` | Django's signing key. Required when `DJANGO_DEBUG` is off. Generate with `python -c "import secrets; print(secrets.token_urlsafe(50))"`. |
+| `DJANGO_ALLOWED_HOSTS` | in production | `truckroute.example.com,localhost` | Comma-separated hostnames Django will serve. Defaults to `localhost`, `127.0.0.1`, `[::1]`. |
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. Defaults to `DEBUG` locally and `INFO` otherwise. |
 | `NUM_PROXIES` | no | `1` | Trusted proxies in front of the app. Default `0`: clients are identified by their socket address, so a spoofed `X-Forwarded-For` can't dodge the throttle. Set `1` behind a single proxy such as Render. |
-| `CORS_ALLOWED_ORIGINS` | no | `https://app.example.com` | Comma-separated browser origins allowed to call the API. Defaults to the Vite dev server (`http://localhost:5173`). |
+| `CORS_ALLOWED_ORIGINS` | no | `https://app.example.com` | Comma-separated browser origins allowed to call the API. Defaults to the Vite dev server (`http://localhost:5173`); an empty value allows no cross-origin access. |
 | `DATABASE_PATH` | no | `/var/data/app.sqlite3` | SQLite file for plan and weather-job records. Defaults to `backend/db.sqlite3`. |
 | `PLAN_DATA_DIR` | no | `/var/data/plans` | Folder for the JSON files the records point at (routes, weather, scored plans). Defaults to `<system temp>/weather-aware`. |
 | `WEATHER_JOB_TTL_S` | no | `21600` | Seconds a weather download is kept for reuse. Default 6 hours, because forecasts are revised. |
