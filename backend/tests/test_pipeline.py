@@ -14,7 +14,7 @@ import pytest
 
 from routing import config, tomtom
 from routing.openmeteo import WeatherStore
-from routing.pipeline import PreparedPlan, fetch_weather, plan, prepare, score_plan
+from routing.pipeline import PreparedPlan, fetch_weather, plan, prepare, route_entry, score_plan
 
 FIXTURE = Path(__file__).parent / "fixtures" / "tomtom_multi_leg.json"
 ORIGIN = {"label": "A", "lat": 32.7767, "lon": -96.797}
@@ -181,6 +181,61 @@ def test_forecast_window_covers_the_departure_hour_and_the_last_arrival():
     assert isinstance(prepared, PreparedPlan)
     assert prepared.start == DEPARTURE.replace(minute=0)
     assert prepared.end - prepared.start >= timedelta(hours=config.HEATMAP_HOURS)
+
+
+# --- scoring what has arrived so far ------------------------------------------------------------
+
+
+def fetched_plan():
+    prepared = prepared_plan()
+    store = WeatherStore(FakeProvider())
+    fetch_weather(prepared, store)
+    return prepared, store
+
+
+def test_route_entry_needs_no_weather_and_matches_the_scored_route():
+    prepared = prepared_plan()
+    scored = full_plan(LIGHT)["routes"]
+
+    for pr, scored_route in zip(prepared.routes, scored, strict=True):
+        entry = route_entry(prepared, pr)
+        assert {key: scored_route[key] for key in entry} == entry
+        assert "by_interval" not in entry
+
+
+def test_the_heatmap_can_be_left_out_without_changing_anything_else():
+    prepared, store = fetched_plan()
+
+    with_heatmap = score_plan(prepared, store, LIGHT)
+    without = score_plan(prepared, store, LIGHT, include_heatmap=False)
+
+    assert "heatmap" not in without
+    rest = {key: value for key, value in with_heatmap.items() if key != "heatmap"}
+    assert without_timestamp(rest) == without_timestamp(without)
+
+
+def test_a_restricted_plan_scores_only_its_intervals_exactly_like_the_full_plan():
+    prepared, store = fetched_plan()
+    full = score_plan(prepared, store, LIGHT, include_heatmap=False)
+
+    part = score_plan(prepared.restricted((25,)), store, LIGHT, include_heatmap=False)
+
+    assert set(part["recommendation"]) == {"25"}
+    assert part["meta"]["intervals"] == [25]
+    assert all(set(r["by_interval"]) == {"25"} for r in part["routes"])
+    assert part["recommendation"]["25"] == full["recommendation"]["25"]
+    assert [r["by_interval"]["25"] for r in part["routes"]] == [
+        r["by_interval"]["25"] for r in full["routes"]
+    ]
+
+
+def test_restricting_a_plan_leaves_the_original_whole():
+    prepared = prepared_plan()
+
+    prepared.restricted((25,))
+
+    assert prepared.intervals == (10, 25, 50)
+    assert all(set(pr.checkpoints) == {10, 25, 50} for pr in prepared.routes)
 
 
 # --- what the load changes ----------------------------------------------------------------------

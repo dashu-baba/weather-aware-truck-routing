@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from math import cos, radians, sin
 from typing import Callable
@@ -65,6 +65,11 @@ class PreparedPlan:
         """Locations of the checkpoints of the given intervals (all by default), across every route."""
         wanted = self.intervals if intervals is None else intervals
         return [(c["lat"], c["lon"]) for pr in self.routes for iv in wanted for c in pr.checkpoints[iv]]
+
+    def restricted(self, intervals: tuple[int, ...]) -> PreparedPlan:
+        """The same plan limited to some checkpoint intervals, to score only what is already fetched."""
+        routes = [replace(pr, checkpoints={iv: pr.checkpoints[iv] for iv in intervals}) for pr in self.routes]
+        return replace(self, intervals=intervals, routes=routes)
 
 
 def _round_weather(w: dict | None) -> dict | None:
@@ -167,9 +172,87 @@ def fetch_weather(prepared: PreparedPlan, weather: WeatherStore) -> None:
     weather.prefetch(prepared.checkpoint_points() + prepared.cells, prepared.start, prepared.end)
 
 
-def score_plan(prepared: PreparedPlan, weather: WeatherStore, load_lb: float) -> dict:
-    """Weather and risk at each checkpoint, ranking and heatmap for one load. Leaves `prepared` untouched."""
-    departure, depart_iso, start = prepared.departure, prepared.depart_iso, prepared.start
+def route_entry(prepared: PreparedPlan, pr: PreparedRoute) -> dict:
+    """A route as the API shows it before any scoring: summary and map geometry. Needs no weather."""
+    r = pr.route
+    arrival_iso = (prepared.departure + timedelta(seconds=round(r.duration_s))).isoformat(timespec="seconds")
+    keep = simplify_indices(r.points, config.FRONTEND_SIMPLIFY_DEG)
+    return {
+        "id": pr.id,
+        "label": f"Route {pr.id}",
+        "source": r.source,
+        "summary": {
+            "distance_mi": round(r.length_m / config.M_PER_MI, 1),
+            "duration_s": round(r.duration_s),
+            "departure": r.departure or prepared.depart_iso,
+            "arrival": r.arrival or arrival_iso,
+        },
+        "geometry": to_lonlat(r.points[i] for i in keep),
+        "times": [round(pr.times[i]) for i in keep],  # lets the UI place a truck at slider time
+    }
+
+
+def _heatmap(prepared: PreparedPlan, weather: WeatherStore, load_lb: float) -> dict:
+    """Rectangular hour-major field ("hull"), or the legacy cell-major layout ("band")."""
+    start, cells = prepared.start, prepared.cells
+    if config.CORRIDOR_MODE == "hull":
+        grid = prepared.grid
+        size = grid["nrows"] * grid["ncols"]
+        values = {
+            name: [[None] * size for _ in range(config.HEATMAP_HOURS)]
+            for name in ("risk", "wind", "gust", "rain", "snow", "u", "v")
+        }
+        fetched_indices = (i for i, fetch in enumerate(grid["fetch_mask"]) if fetch)
+        for i, (lat, lon) in zip(fetched_indices, cells, strict=True):
+            for hour, w in enumerate(weather.hours(lat, lon, start, config.HEATMAP_HOURS)):
+                if w is None:
+                    continue
+                values["risk"][hour][i] = classify(w, load_lb)["risk"]
+                u, v = wind_components(w["wind_mph"], w.get("direction_deg"))
+                values["u"][hour][i], values["v"][hour][i] = u, v
+                for name, field, decimals in (
+                    ("wind", "wind_mph", 1),
+                    ("gust", "gust_mph", 1),
+                    ("rain", "rain_in", 3),
+                    ("snow", "snow_in", 3),
+                ):
+                    values[name][hour][i] = _round(w[field], decimals)
+        return {
+            "mode": "hull",
+            "start": start.isoformat().replace("+00:00", "Z"),
+            "hours": config.HEATMAP_HOURS,
+            "polygon": to_lonlat(prepared.polygon),
+            "grid": {key: value for key, value in grid.items() if key != "fetch_mask"},
+            "vars": values,
+        }
+    heat = {
+        "start": start.isoformat().replace("+00:00", "Z"),
+        "hours": config.HEATMAP_HOURS,
+        "step_deg": prepared.step,
+        "cells": [[c[0], c[1]] for c in cells],
+        "risk": [],
+        "wind": [],
+        "rain": [],
+        "snow": [],
+    }
+    for lat, lon in cells:
+        series = weather.hours(lat, lon, start, config.HEATMAP_HOURS)
+        heat["risk"].append([classify(w, load_lb)["risk"] if w else None for w in series])
+        heat["wind"].append([_round(w["wind_mph"], 1) if w else None for w in series])
+        heat["rain"].append([_round(w["rain_in"], 3) if w else None for w in series])
+        heat["snow"].append([_round(w["snow_in"], 3) if w else None for w in series])
+    return heat
+
+
+def score_plan(
+    prepared: PreparedPlan, weather: WeatherStore, load_lb: float, *, include_heatmap: bool = True
+) -> dict:
+    """Weather and risk at each checkpoint, ranking and heatmap for one load. Leaves `prepared` untouched.
+
+    include_heatmap=False skips the heatmap (and leaves the key out), which is what scoring a partly
+    fetched plan needs: the checkpoints of some intervals are in, the heatmap cells are not yet.
+    """
+    depart_iso = prepared.depart_iso
     warnings: list[str] = []
     gross_lb = load_lb + config.TRUCK_TARE_LB
     if gross_lb > config.MAX_GROSS_LB:
@@ -182,22 +265,8 @@ def score_plan(prepared: PreparedPlan, weather: WeatherStore, load_lb: float) ->
     out_routes, rec = [], {}
     for pr in prepared.routes:
         r = pr.route
-        arrival_iso = (departure + timedelta(seconds=round(r.duration_s))).isoformat(timespec="seconds")
-        entry = {
-            "id": pr.id,
-            "label": f"Route {pr.id}",
-            "source": r.source,
-            "summary": {
-                "distance_mi": round(r.length_m / config.M_PER_MI, 1),
-                "duration_s": round(r.duration_s),
-                "departure": r.departure or depart_iso,
-                "arrival": r.arrival or arrival_iso,
-            },
-            "by_interval": {},
-        }
-        keep = simplify_indices(r.points, config.FRONTEND_SIMPLIFY_DEG)
-        entry["geometry"] = to_lonlat(r.points[i] for i in keep)
-        entry["times"] = [round(pr.times[i]) for i in keep]  # lets the UI place a truck at slider time
+        entry = route_entry(prepared, pr)
+        entry["by_interval"] = {}
         for iv, prepared_cps in pr.checkpoints.items():
             cps = [dict(c) for c in prepared_cps]  # copies: the next load scores the same checkpoints
             for c in cps:
@@ -231,57 +300,7 @@ def score_plan(prepared: PreparedPlan, weather: WeatherStore, load_lb: float) ->
         }
         logger.debug("plan: interval %d mi -> best=%s (%s)", iv, rec[str(iv)]["best"], reason)
 
-    # 6. Heatmap: rectangular hour-major field ("hull"), or the legacy cell-major layout ("band")
-    cells = prepared.cells
-    if config.CORRIDOR_MODE == "hull":
-        grid = prepared.grid
-        size = grid["nrows"] * grid["ncols"]
-        values = {
-            name: [[None] * size for _ in range(config.HEATMAP_HOURS)]
-            for name in ("risk", "wind", "gust", "rain", "snow", "u", "v")
-        }
-        fetched_indices = (i for i, fetch in enumerate(grid["fetch_mask"]) if fetch)
-        for i, (lat, lon) in zip(fetched_indices, cells, strict=True):
-            for hour, w in enumerate(weather.hours(lat, lon, start, config.HEATMAP_HOURS)):
-                if w is None:
-                    continue
-                values["risk"][hour][i] = classify(w, load_lb)["risk"]
-                u, v = wind_components(w["wind_mph"], w.get("direction_deg"))
-                values["u"][hour][i], values["v"][hour][i] = u, v
-                for name, field, decimals in (
-                    ("wind", "wind_mph", 1),
-                    ("gust", "gust_mph", 1),
-                    ("rain", "rain_in", 3),
-                    ("snow", "snow_in", 3),
-                ):
-                    values[name][hour][i] = _round(w[field], decimals)
-        heat = {
-            "mode": "hull",
-            "start": start.isoformat().replace("+00:00", "Z"),
-            "hours": config.HEATMAP_HOURS,
-            "polygon": to_lonlat(prepared.polygon),
-            "grid": {key: value for key, value in grid.items() if key != "fetch_mask"},
-            "vars": values,
-        }
-    else:
-        heat = {
-            "start": start.isoformat().replace("+00:00", "Z"),
-            "hours": config.HEATMAP_HOURS,
-            "step_deg": prepared.step,
-            "cells": [[c[0], c[1]] for c in cells],
-            "risk": [],
-            "wind": [],
-            "rain": [],
-            "snow": [],
-        }
-        for lat, lon in cells:
-            series = weather.hours(lat, lon, start, config.HEATMAP_HOURS)
-            heat["risk"].append([classify(w, load_lb)["risk"] if w else None for w in series])
-            heat["wind"].append([_round(w["wind_mph"], 1) if w else None for w in series])
-            heat["rain"].append([_round(w["rain_in"], 3) if w else None for w in series])
-            heat["snow"].append([_round(w["snow_in"], 3) if w else None for w in series])
-
-    return {
+    result = {
         "meta": {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "source": prepared.source_label,
@@ -305,8 +324,10 @@ def score_plan(prepared: PreparedPlan, weather: WeatherStore, load_lb: float) ->
         "destination": prepared.destination,
         "routes": out_routes,
         "recommendation": rec,
-        "heatmap": heat,
     }
+    if include_heatmap:
+        result["heatmap"] = _heatmap(prepared, weather, load_lb)
+    return result
 
 
 def plan(

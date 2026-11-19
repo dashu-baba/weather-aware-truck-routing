@@ -6,7 +6,10 @@ ORIGIN = "http://localhost:5173"
 
 
 def test_spoofed_forwarded_for_does_not_bypass_the_throttle(api):
-    with mock.patch("planner.services.build_plan", return_value={"routes": []}):
+    with (
+        mock.patch("planner.views.start_plan"),
+        mock.patch("planner.views.plan_status", return_value={"status": "weather"}),
+    ):
         codes = [
             api.post(
                 "/api/plan",

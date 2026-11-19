@@ -24,6 +24,13 @@ def tomtom_key(monkeypatch):
     return TEST_API_KEY
 
 
+@pytest.fixture(autouse=True)
+def plan_files(settings, tmp_path):
+    """Plan files go to a temp dir, and no test starts the background worker thread on its own."""
+    settings.PLAN_DATA_DIR = tmp_path / "plan-data"
+    settings.JOB_WORKER = "external"
+
+
 @pytest.fixture
 def api():
     return APIClient()

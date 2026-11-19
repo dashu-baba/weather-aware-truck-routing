@@ -188,6 +188,18 @@ def test_cleanup_removes_only_what_has_expired_together_with_its_files():
     assert sorted(p.name for p in storage.data_dir().iterdir()) == ["fresh-result.json", "fresh-weather.json"]
 
 
+def test_cleanup_also_removes_a_jobs_work_and_pool_files_and_a_plans_heatmap():
+    job = make_job("old-job", expires_at=expired())  # the row never recorded its files
+    storage.write_json(storage.work_name(job), {})
+    storage.write_json(storage.pool_name(job), {})
+    make_plan("old-plan", expires_at=expired(), heatmap_path=storage.write_json("heat.json", {}))
+
+    counts = storage.cleanup_expired()
+
+    assert counts == {"plans": 1, "jobs": 1, "files": 3}
+    assert list(storage.data_dir().iterdir()) == []
+
+
 def test_cleanup_is_idempotent():
     make_job(expires_at=expired())
 

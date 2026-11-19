@@ -58,6 +58,8 @@ curl "http://localhost:8000/api/geocode?q=Dallas"
 | `WEATHER_JOB_TTL_S` | no | `21600` | Seconds a weather download is kept for reuse. Default 6 hours, because forecasts are revised. |
 | `PLAN_TTL_S` | no | `86400` | Seconds a finished plan is kept. Default 24 hours. |
 | `JOB_STALE_S` | no | `300` | A running weather job that reports no progress for this long is treated as dead and requeued. |
+| `JOB_WORKER` | no | `external` | `thread` (default): the web process runs the weather jobs itself, starting on the first plan request. `external`: run `python manage.py run_jobs` as a separate process instead. |
+| `JOB_WINDOW_HOURS` | no | `72` | Hours of forecast each weather job fetches from the departure hour. Trips longer than this are refused with `422`. |
 
 Logs go to stderr in the format `time LEVEL logger: message`. The TomTom API key is never written to the logs.
 
@@ -79,8 +81,9 @@ The limits are in `backend/routing/config.py` (`OPEN_METEO_*`).
 
 ### Database and plan files
 
-The planner is being moved to a background flow (routes first, weather scored afterwards), so the backend now
-has a small SQLite database (WAL mode, so status polls never wait for a writer):
+`POST /api/plan` returns the routes first and scores the weather in the background (see the
+[API reference](./docs/API_Reference.md)), so the backend keeps a small SQLite database (WAL mode, so status
+polls never wait for a writer):
 
 - **`WeatherJob`**: one weather download per trip and departure hour. The forecast does not depend on the load,
   so every load on the same trip shares it (the key is origin, destination and the departure hour).
@@ -88,7 +91,8 @@ has a small SQLite database (WAL mode, so status polls never wait for a writer):
 - Large payloads are JSON files under `PLAN_DATA_DIR`; rows only store the path.
 
 Run `python manage.py migrate` after pulling, and `python manage.py cleanup_plans` to delete expired records
-and their files (run it on a schedule, for example hourly). `/api/plan` does not use the database yet.
+and their files (run it on a schedule, for example hourly). Expired records are also removed whenever a plan is
+started.
 
 ### Weather job worker
 
@@ -101,6 +105,10 @@ of `total_locations`).
 python manage.py run_jobs          # a worker process: keeps running and picks up queued jobs
 python manage.py run_jobs --once   # process the queue until it is empty, then exit
 ```
+
+By default (`JOB_WORKER=thread`) you don't need to run this: the web process starts one worker thread the first
+time a plan is requested. Run **one** web process (for example one Gunicorn worker) so a single worker holds the
+Open-Meteo budget. For several web processes, set `JOB_WORKER=external` and run one `run_jobs` process.
 
 - **Resuming:** forecasts already fetched are saved (every 200 locations and after each stage), so a failed or
   restarted job continues where it stopped. A running job with no progress for `JOB_STALE_S` seconds is requeued
@@ -123,7 +131,8 @@ keys, the TomTom client's response and error parsing, the geocode endpoint (vali
 handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
 handling), the planning pipeline (preparing routes once and scoring them for different loads), the plan and
 weather-job records (keys, expiry cleanup, file safety), the job worker (staged fetching, progress, failures and
-resuming, the queue and the worker thread), and logging,
+resuming, the queue and the worker thread), the plan endpoints (routes at once, progress polling, sharing the
+weather between loads, errors), and logging,
 including a check that the API key never appears in log output.
 
 ## Project structure

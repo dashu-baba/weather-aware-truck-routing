@@ -94,6 +94,12 @@ PLAN_TTL_S = int(os.getenv("PLAN_TTL_S", 24 * 3600))
 # A running weather job that has not reported progress for this long is treated as dead and requeued.
 # It must exceed the longest wait for the Open-Meteo per-minute window.
 JOB_STALE_S = int(os.getenv("JOB_STALE_S", 300))
+# "thread": the web process runs the weather jobs itself (started on the first plan request).
+# "external": a separate `manage.py run_jobs` process does. Use one worker process either way.
+JOB_WORKER = os.getenv("JOB_WORKER", "thread")
+# Every weather job fetches this many hours from the departure hour. One location costs the same however
+# many hours it covers, and a fixed window lets plans for other loads (and longer routes) share the job.
+JOB_WINDOW_HOURS = int(os.getenv("JOB_WINDOW_HOURS", 72))
 
 
 # Internationalization
@@ -125,7 +131,7 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"geocode": "60/min", "plan": "6/min"},
+    "DEFAULT_THROTTLE_RATES": {"geocode": "60/min", "plan": "6/min", "plan_status": "120/min"},
     # Trusted proxies in front of the app. 0 = identify clients by REMOTE_ADDR only, so a spoofed
     # X-Forwarded-For can't dodge the throttle. Set to 1 behind a single proxy (e.g. Render).
     "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "0")),

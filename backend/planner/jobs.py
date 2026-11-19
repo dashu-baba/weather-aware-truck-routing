@@ -30,19 +30,12 @@ from routing.openmeteo import Provider, RateLimited, WeatherStore, weather_key
 
 from . import storage
 from .models import WeatherJob
+from .storage import pool_name, work_name
 
 logger = logging.getLogger(__name__)
 
 STAGE_ORDER = ("checkpoints_25", "checkpoints_50", "checkpoints_10", "heatmap")
 SAVE_EVERY = 200  # locations fetched between saves of the pool file
-
-
-def work_name(job: WeatherJob) -> str:
-    return f"job-{job.pk}-work.json"
-
-
-def pool_name(job: WeatherJob) -> str:
-    return f"job-{job.pk}-pool.json"
 
 
 def _key_str(key: LatLon) -> str:

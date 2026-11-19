@@ -26,6 +26,16 @@ def data_dir() -> Path:
     return path
 
 
+def work_name(job: WeatherJob) -> str:
+    """The job's work list: which locations to fetch, per stage."""
+    return f"job-{job.pk}-work.json"
+
+
+def pool_name(job: WeatherJob) -> str:
+    """The job's pool: the forecasts fetched so far."""
+    return f"job-{job.pk}-pool.json"
+
+
 def _inside_data_dir(path: str | Path) -> Path | None:
     resolved = Path(path).resolve()
     return resolved if resolved.is_relative_to(data_dir().resolve()) else None
@@ -75,8 +85,10 @@ def cleanup_expired(now: datetime | None = None) -> dict[str, int]:
     with transaction.atomic():
         plans = list(PlanRequest.objects.filter(expires_at__lte=now))
         jobs = list(WeatherJob.objects.filter(expires_at__lte=now))
-        paths = [p for plan in plans for p in (plan.routes_path, plan.result_path)]
-        paths += [job.data_path for job in jobs]
+        paths = [p for plan in plans for p in (plan.routes_path, plan.result_path, plan.heatmap_path)]
+        for job in jobs:
+            # The job's files have fixed names, so they are removed even if the row never recorded them.
+            paths += [job.data_path, str(data_dir() / work_name(job)), str(data_dir() / pool_name(job))]
         PlanRequest.objects.filter(pk__in=[plan.pk for plan in plans]).delete()
         WeatherJob.objects.filter(pk__in=[job.pk for job in jobs]).delete()
     files = sum(remove_file(path) for path in paths)

@@ -65,7 +65,10 @@ class PlanRequest(models.Model):
         WeatherJob, null=True, blank=True, on_delete=models.SET_NULL, related_name="plans"
     )
     routes_path = models.CharField(max_length=300, blank=True)  # JSON file with this load's TomTom routes
-    result_path = models.CharField(max_length=300, blank=True)  # JSON file with the scored plan
+    result_path = models.CharField(max_length=300, blank=True)  # JSON file with the scored plan (no heatmap)
+    heatmap_path = models.CharField(
+        max_length=300, blank=True
+    )  # JSON file with the heatmap, fetched separately
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=plan_expiry, db_index=True)
 
