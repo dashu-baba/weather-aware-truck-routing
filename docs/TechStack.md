@@ -10,6 +10,5 @@
 | Weather | Open-Meteo hourly forecast API |
 | Basemap | OpenFreeMap (OpenStreetMap data) |
 | Tests and checks | pytest and ruff (backend); Vitest, ESLint and `tsc` (frontend) |
-| Hosting | TBD |
 
 The frontend needs Node.js 20.19+ or 22.12+ (a Vite 8 requirement).

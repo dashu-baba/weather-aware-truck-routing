@@ -13,7 +13,7 @@ value there and update this page.
 | Routes | Three | One main route and up to two alternatives. A route that shares more than 85% of its length with another counts as the same route. |
 | Departure | One hour ago to seven days ahead | A time without an offset is read as UTC. Each departure minute is its own plan. |
 | Trip length | At most 72 hours of forecast | Longer trips are refused with `422` (`JOB_WINDOW_HOURS`). |
-| Region | US-first | Place search is limited to the US. Reverse geocoding and routing work anywhere, but the thresholds, tare weight and weight warning are US values, so the UI warns for a point outside the US. |
+| Region | US-first | Place search is limited to the US. Reverse geocoding and routing work anywhere, but the thresholds, tare weight and weight warning are US values. |
 
 ### Travel time and weather timing
 
@@ -44,8 +44,8 @@ value there and update this page.
 
 - 48 hours of forecast, in a polygon 25 miles around the three routes (a convex hull), on a grid of at most 450
   cells. Each cell is one weather call, which keeps the quota use small.
-- The browser draws the heatmap and the risk layer from the grid values; it classifies risk per pixel and never
-  interpolates the integer risk levels.
+- The API returns the grid values for each hour (risk, wind, gust, rain, snow and the wind components) as a
+  separate request, and the result does not contain them.
 
 ### Not modelled
 
@@ -57,6 +57,6 @@ rates. Treat the result as a planning aid and not a substitute for current condi
 - **Open-Meteo free tier:** 600 locations a minute, 5,000 an hour and 10,000 a day, where every location counts as
   one call. A plan needs roughly 650 locations for an 800-mile trip and 1,400 for a cross-country one. The server
   paces itself and answers `503` instead of waiting an hour (see the README).
-- **TomTom:** a new plan costs about 5 to 7 routing calls. Nothing tracks the daily limit yet.
+- **TomTom:** a new plan costs about 5 to 7 routing calls. The daily limit is not tracked.
 - **This API:** 60 searches, 60 map-point lookups, 6 plans and 120 status polls a minute per client.
 - **Retention:** a plan is kept for 24 hours and a weather download for 6 hours (forecasts are revised).

@@ -1,11 +1,8 @@
 ## Features
 
-### Available now
-
 - **Three truck routes** from TomTom's truck routing. The planner uses the truck's gross weight (cargo plus
   tare) and makes sure the three routes are genuinely different. They are drawn on the map within seconds.
-- **Place search.** Search a US place by name. The backend can also name any point on the map (reverse
-  geocoding); picking a point on the map is coming next.
+- **Place search.** Search a US place by name. The API can also name any point on a map (reverse geocoding).
 - **Weather at arrival time.** A checkpoint is placed every **10, 25 or 50 miles** (you choose). Each
   checkpoint gets the hourly forecast for the hour the truck is expected to be there, not the current weather.
 - **Load-aware risk.** Wind, rain and snow are classified into Low, Moderate, High, Severe or No Travel,
@@ -22,15 +19,5 @@
   ETA, wind, gust, rain, snow, forecast hour, risk level and the reasons behind it. Switching the checkpoint
   spacing or the focused route never calls the server.
 - **API keys never reach the browser.** Every third-party call goes through the Django API.
-
-### Coming next
-
-- **Picking places on the map.** Click the map or drag a pin to set the origin and destination. A point outside
-  the US is allowed but gets a warning.
-- **Corridor weather map.** A heatmap clipped to a polygon around all three routes, with layers for **Risk, Wind,
-  Gust, Rain and Snow**, a **0–48 hour forecast slider** with playback, and a readout of the value under the
-  cursor. The backend already serves the heatmap data and the browser fetches it, but does not draw it yet.
-- **Trucks on the timeline.** Each route's truck moves along its route as you drag the slider, so you can see it
-  meeting the weather.
 
 See [Assumptions](./Assumptions.md) for what the planner assumes and does not model.

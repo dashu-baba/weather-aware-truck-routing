@@ -7,15 +7,6 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 
 **Live app:** 
 
-## Status
-
-| Part | State |
-|---|---|
-| Backend: routes, background weather scoring, recommendation, heatmap data, place search and reverse geocoding | Built and tested |
-| Frontend: trip form with place search, routes on the map within seconds, live progress, recommendation, route cards, risk-coloured checkpoints and popups | Built and tested |
-| Frontend: heatmap with the 0–48 h slider, trucks on the timeline, picking places on the map | In progress |
-| Deployment | Not done yet |
-
 ## Contents
  
 1. [Features](./docs/Features.md)

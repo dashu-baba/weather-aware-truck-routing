@@ -44,7 +44,7 @@ Basemap tiles ──────────────────────
   can draw them at once. The browser then polls `GET /api/plan/<id>` for a progress percentage and, as each
   checkpoint interval arrives, a recommendation. The final result holds the checkpoints for all three
   intervals, the scores and the recommendation; the 48-hour heatmap is a separate request. After that,
-  switching the interval, layer or hour **never calls the server**.
+  switching the checkpoint interval or the focused route **never calls the server**.
 
 ### Frontend
 
