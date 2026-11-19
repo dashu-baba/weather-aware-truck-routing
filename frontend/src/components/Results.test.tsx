@@ -22,6 +22,7 @@ describe('result components', () => {
   it('explains the recommended route and selected spacing', () => {
     const html = renderToStaticMarkup(<Recommendation recommendation={scoredResult.recommendation['50']} routes={scoredResult.routes} interval={50} />);
     expect(html).toContain('Recommended: Route A');
+    expect(html).toContain('border-left-color:#1f5eff');
     expect(html).toContain('shorter travel time');
     expect(html).toContain('every 50 mi');
   });

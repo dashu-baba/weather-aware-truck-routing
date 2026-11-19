@@ -1,4 +1,5 @@
 import type { Recommendation as RecommendationData, RouteEntry } from '../api/types';
+import { routeColor } from '../map/palette';
 
 type Props = { recommendation: RecommendationData | null; routes: RouteEntry[]; interval: number };
 
@@ -15,7 +16,7 @@ export function Recommendation({ recommendation, routes, interval }: Props) {
     );
   }
   return (
-    <div className="recommendation">
+    <div className="recommendation" style={best ? { borderLeftColor: routeColor(best.id) } : undefined}>
       <strong>{best ? `Recommended: ${best.label}` : 'No recommendation available.'}</strong>
       <p className="recommendation-reason">Decided by: {recommendation.reason} (every {interval} mi)</p>
     </div>

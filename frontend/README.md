@@ -110,7 +110,7 @@ route data or moving the map; each new submission fits its first routes once.
 
 - [x] `npm run build`: strict TypeScript and production bundling pass.
 - [x] `npm run lint`: no errors or warnings.
-- [x] `npm test`: 162 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
+- [x] `npm test`: 169 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
 - [x] Map appears before a trip, centered on the US, with one map canvas in StrictMode.
 - [x] MapLibre worker loads through Vite; the basemap tiles and labels render.
 - [x] Real Dallas/Atlanta place searches return through `/api/geocode`.
@@ -229,3 +229,39 @@ the real backend except for the explicitly simulated 502.
 
 No new dependencies were added for phases 2–7. The production build reports
 a bundle-size advisory for MapLibre; TypeScript compilation and bundling succeed.
+
+
+## Section 15 branding checks
+
+The supplied logo and animated SVG are copied into `src/assets/`. The logo also
+appears at `public/favicon.png`. Components reference these local copies; the app
+does not import from the reference directory.
+
+`AppHeader` sits above the grid: a 56 px navy bar, a 40 px logo on a white rounded
+badge, and a 3 px red accent line. The panel and map fill the remaining viewport
+height. Buttons and toggles use navy; cards use the surface/border/radius/shadow
+tokens. Recommendations have a 4 px border in the recommended route's colour,
+or No Travel purple when every route is blocked. Risk and route palettes are unchanged.
+
+`TruckLoader` appears only during posting and weather scoring. It announces the
+exact lifecycle label, with the progress bar retained underneath. After completion,
+the TimeBar displays `Loading heatmap…` without the truck animation. The SVG is
+used normally; a picture source selects the supplied static logo when reduced
+motion is requested. This explicit fallback was added after Chrome's reduced-motion
+screenshot check still showed movement with the SVG image alone.
+
+- [x] Build and lint pass; all 169 Vitest tests pass.
+- [x] Brand accent scan matches only the variables and header line.
+- [x] The logo and SVG copies match the supplied image bytes; the favicon matches the logo.
+- [x] Browser title is `Weather-Aware Truck Routing`; the PNG favicon loads.
+- [x] Header measures 59 px total and the desktop grid starts directly below it.
+- [x] Loader labels match posting, queued and 42% checkpoint-weather states; it disappears on done/failed.
+- [x] Normal-motion screenshots differ; reduced-motion screenshots are identical.
+- [x] At 390 px the loader is 200 px wide, the header title fits, the map precedes the panel,
+  and there is no horizontal overflow.
+- [x] Browser-computed recommendation border is 4 px in the route colour; selected toggles are navy.
+- [x] Contrast tests meet AA for primary buttons, body text and muted labels.
+- [x] Browser console has no errors; resources use only the local app and OpenFreeMap.
+
+Browser lifecycle checks used controlled API responses and a saved real completed
+plan, without starting a weather download. No new dependencies were added.

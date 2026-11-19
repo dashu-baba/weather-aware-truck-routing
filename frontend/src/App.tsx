@@ -7,6 +7,7 @@ import { RouteCards } from './components/RouteCards';
 import { usePlan } from './hooks/usePlan';
 import { useTripPlaces } from './hooks/useTripPlaces';
 import { PlanStatus } from './components/PlanStatus';
+import { AppHeader } from './components/AppHeader';
 import { MapView } from './components/MapView';
 import { TripForm } from './components/TripForm';
 import { Legend } from './components/Legend';
@@ -35,52 +36,48 @@ export default function App() {
   const { hour, playing, pause, seek, toggle } = usePlayback(heatfield);
 
   return (
-    <main className="app-shell">
-      <aside className="panel">
-        <header className="brand">
-          <div className="brand-icon" aria-hidden="true">↗</div>
-          <div>
-            <h1>Weather-aware<span>Truck routing</span></h1>
-            <p>PLAN WITH THE FORECAST AHEAD</p>
-          </div>
-        </header>
-        <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit}
-          places={locations.places} pickTarget={locations.pickTarget}
-          onPlaceChange={locations.select} onPick={locations.startPick} onSwap={locations.swap} />
-        <PlanStatus state={state} interval={interval} onRetry={retry} />
-        {result && (
-          <section className="plan-results" aria-label="Scored routes">
-            <div className="section-heading"><h2>Compare routes</h2><span>02 — RESULTS</span></div>
-            <p className="result-trip">{result.origin.label} → {result.destination.label}</p>
-            <p className="result-context">Depart {localTime(result.meta.departure)} · {result.meta.load_lb.toLocaleString()} lb cargo</p>
-            <Recommendation recommendation={recommendation} routes={result.routes} interval={interval} />
-            <IntervalToggle intervals={result.meta.intervals} interval={interval}
-              onChange={value => setSelection({ result, interval: value, routeId: selectedId })} />
-            <RouteCards routes={result.routes} recommendation={recommendation} interval={interval} focusId={focusId}
-              onFocus={id => setSelection({ result, interval, routeId: selectedId === id ? null : id })} />
-            {result.meta.warnings.length > 0 && (
-              <div className="plan-warnings" aria-label="Plan warnings">
-                {result.meta.warnings.map((warning, index) => <p className="warning" key={index}>{warning}</p>)}
-              </div>
-            )}
-          </section>
-        )}
-        <footer>
-          Routing © TomTom · Weather data by Open-Meteo.com (CC BY 4.0) ·
-          Map © OpenFreeMap, © OpenStreetMap contributors
-        </footer>
-      </aside>
-      <MapView routes={state.routes} result={result} interval={interval} focusId={focusId}
-        heatfield={heatfield} heatLayer={layer} hour={hour}
-        places={locations.places} pickTarget={locations.pickTarget} onPick={locations.pick} onCancelPick={locations.cancelPick}>
-        {heatfield && !locations.pickTarget && <Legend layer={layer} />}
-        {state.phase === 'done' && !state.warning && (
-          <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={layer}
-            disabled={!heatfield} note={heatError ?? 'Loading the weather map…'}
-            playing={playing} onTogglePlay={toggle} onPause={pause}
-            onHour={seek} onLayer={setLayer} />
-        )}
-      </MapView>
-    </main>
+    <>
+      <AppHeader />
+      <main className="app-shell">
+        <aside className="panel">
+          <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit}
+            places={locations.places} pickTarget={locations.pickTarget}
+            onPlaceChange={locations.select} onPick={locations.startPick} onSwap={locations.swap} />
+          <PlanStatus state={state} interval={interval} onRetry={retry} />
+          {result && (
+            <section className="plan-results" aria-label="Scored routes">
+              <div className="section-heading"><h2>Compare routes</h2><span>02 — RESULTS</span></div>
+              <p className="result-trip">{result.origin.label} → {result.destination.label}</p>
+              <p className="result-context">Depart {localTime(result.meta.departure)} · {result.meta.load_lb.toLocaleString()} lb cargo</p>
+              <Recommendation recommendation={recommendation} routes={result.routes} interval={interval} />
+              <IntervalToggle intervals={result.meta.intervals} interval={interval}
+                onChange={value => setSelection({ result, interval: value, routeId: selectedId })} />
+              <RouteCards routes={result.routes} recommendation={recommendation} interval={interval} focusId={focusId}
+                onFocus={id => setSelection({ result, interval, routeId: selectedId === id ? null : id })} />
+              {result.meta.warnings.length > 0 && (
+                <div className="plan-warnings" aria-label="Plan warnings">
+                  {result.meta.warnings.map((warning, index) => <p className="warning" key={index}>{warning}</p>)}
+                </div>
+              )}
+            </section>
+          )}
+          <footer>
+            Routing © TomTom · Weather data by Open-Meteo.com (CC BY 4.0) ·
+            Map © OpenFreeMap, © OpenStreetMap contributors
+          </footer>
+        </aside>
+        <MapView routes={state.routes} result={result} interval={interval} focusId={focusId}
+          heatfield={heatfield} heatLayer={layer} hour={hour}
+          places={locations.places} pickTarget={locations.pickTarget} onPick={locations.pick} onCancelPick={locations.cancelPick}>
+          {heatfield && !locations.pickTarget && <Legend layer={layer} />}
+          {state.phase === 'done' && !state.warning && (
+            <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={layer}
+              disabled={!heatfield} note={heatError ?? 'Loading heatmap…'}
+              playing={playing} onTogglePlay={toggle} onPause={pause}
+              onHour={seek} onLayer={setLayer} />
+          )}
+        </MapView>
+      </main>
+    </>
   );
 }

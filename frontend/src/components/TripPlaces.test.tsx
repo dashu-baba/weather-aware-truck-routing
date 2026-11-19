@@ -13,6 +13,7 @@ it('shows the picked label, pressed picker and a warning associated with the inp
   expect(html).toContain('aria-describedby=');
   expect(html).toContain(OUTSIDE_US_WARNING);
   expect(html).toContain('Clear origin');
+  expect(html).toContain('stroke="currentColor"');
 });
 
 it('allows coordinate-only and outside-US places to be submitted without waiting for naming', () => {

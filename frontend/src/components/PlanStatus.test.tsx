@@ -14,7 +14,7 @@ describe('PlanStatus', () => {
   });
 
   it('labels queued jobs, heatmap work and unknown stages', () => {
-    expect(stageLabel('heatmap', true)).toBe('Waiting for a worker…');
+    expect(stageLabel('heatmap', true)).toBe('Waiting for the weather worker…');
     expect(stageLabel('heatmap', false)).toBe('Heatmap grid');
     expect(stageLabel('future-stage', false)).toBe('Fetching weather');
   });
@@ -39,4 +39,23 @@ describe('PlanStatus', () => {
     expect(failed).toContain('Try again later.');
     expect(failed).toContain('Retry');
   });
+});
+
+it('uses TruckLoader only for posting/weather, retaining progress and the exact lifecycle labels', () => {
+  const posting = renderToStaticMarkup(<PlanStatus state={planReducer(initialPlanState, { type: 'submit' })} onRetry={() => {}} />);
+  expect(posting).toContain('truck-loader');
+  expect(posting).toContain('Finding truck routes…');
+  expect(posting).toContain('alt=""');
+  expect(posting).toContain('media="(prefers-reduced-motion: reduce)"');
+  expect(posting).toContain('truck-logo.png');
+  expect(posting).toContain('role="status" aria-live="polite"');
+  expect(posting).toContain('Route planning progress');
+  const weather = plan({ progress: { stage: 'checkpoints_25', done: 42, total: 100, percent: 42, queued: false } });
+  expect(render(weather)).toContain('Weather for 25-mile checkpoints · 42%');
+  expect(render(weather)).toContain('value="42"');
+  expect(render(plan({ progress: { ...weather.progress, queued: true } }))).toContain('Waiting for the weather worker…');
+  expect(render(donePlan())).not.toContain('truck-loader');
+  expect(render(donePlan())).not.toContain('Downloading weather grid');
+  expect(render(plan({ status: 'failed', error: 'Failed' }))).not.toContain('truck-loader');
+  expect(renderToStaticMarkup(<PlanStatus state={initialPlanState} onRetry={() => {}} />)).toBe('');
 });
