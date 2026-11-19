@@ -76,7 +76,13 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.getenv("DATABASE_PATH", str(BASE_DIR / "db.sqlite3")),
-        "OPTIONS": {"timeout": 20, "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;"},
+        "OPTIONS": {
+            "timeout": 20,
+            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            # Take the write lock when a transaction starts, so read-modify-write blocks (a job's work
+            # list, its final status) queue up behind each other instead of failing on upgrade.
+            "transaction_mode": "IMMEDIATE",
+        },
     }
 }
 
@@ -85,6 +91,9 @@ PLAN_DATA_DIR = Path(os.getenv("PLAN_DATA_DIR", Path(tempfile.gettempdir()) / "w
 # Forecasts are revised every few hours, so weather is kept for less time than finished plans.
 WEATHER_JOB_TTL_S = int(os.getenv("WEATHER_JOB_TTL_S", 6 * 3600))
 PLAN_TTL_S = int(os.getenv("PLAN_TTL_S", 24 * 3600))
+# A running weather job that has not reported progress for this long is treated as dead and requeued.
+# It must exceed the longest wait for the Open-Meteo per-minute window.
+JOB_STALE_S = int(os.getenv("JOB_STALE_S", 300))
 
 
 # Internationalization

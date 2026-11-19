@@ -19,6 +19,10 @@ Basemap tiles ──────────────────────
   large JSON payloads in files under `PLAN_DATA_DIR`. `/api/plan` does not use it yet.
 - **Rate limiting:** DRF throttles each client (60 geocodes and 6 plans a minute) so a public deployment
   can't use up the API quotas.
+- **Weather jobs** (`backend/planner/jobs.py`): a worker thread or `manage.py run_jobs` process takes queued
+  jobs one at a time, fetches the forecast stage by stage (25-mile checkpoints, 50, 10, then the heatmap) and
+  stores it in a per-job pool file. It reports progress after every batch and a heartbeat that lets a
+  restarted worker requeue a dead job. A plan for another load adds only the locations that are missing.
 - **The planner is three steps** (`backend/routing/pipeline.py`): `prepare` gets the routes and builds the
   checkpoints and heatmap grid, `fetch_weather` loads every forecast location in one prefetch, and
   `score_plan` turns weather into risk, ranking and heatmap for one load. Only the middle step is slow
