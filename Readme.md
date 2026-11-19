@@ -14,9 +14,11 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 3. [Architecture](./docs/Architecture.md)
 4. [Tech stack](./docs/TechStack.md)
 5. [Running locally](#running-locally)
-6. [API reference](./docs/API_Reference.md)
-7. [Project structure](#project-structure)
-8. [Credits](#credits)
+6. [Environment variables](#environment-variables)
+7. [API reference](./docs/API_Reference.md)
+8. [Testing](#testing)
+9. [Project structure](#project-structure)
+10. [Credits](#credits)
 
 ## Running locally
  
@@ -33,14 +35,44 @@ cp .env.example .env            # then set TOMTOM_API_KEY
 python manage.py runserver      # http://localhost:8000/api/health
 ```
 
+### Quick API check
+
+```bash
+curl "http://localhost:8000/api/health"
+curl "http://localhost:8000/api/geocode?q=Dallas"
+```
+
+## Environment variables
+
+**Backend (`backend/.env`)**
+
+| Variable | Required | Example | Purpose |
+|---|---|---|---|
+| `TOMTOM_API_KEY` | yes | `abc123…` | TomTom routing + geocoding (server-side only) |
+| `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. Defaults to `DEBUG` locally and `INFO` otherwise. |
+
+Logs go to stderr in the format `time LEVEL logger: message`. The TomTom API key is never written to the logs.
+
+## Testing
+
+```bash
+cd backend
+python -m pytest -q             # offline tests, no network or API key needed
+ruff check .                    # lint (config in backend/ruff.toml)
+```
+
+Tests use fake HTTP sessions, so they never call TomTom. They cover cache keys, the TomTom client's
+response and error parsing, the geocode endpoint (validation, caching, 502 handling), request
+throttling, and logging, including a check that the API key never appears in log output.
+
 ## Project structure
  
 ```
 backend/
-  config/            Django settings and URLs
-  planner/           API views, request validation, caching, throttling
-  routing/           geo, checkpoints, risk, ranking, corridor, TomTom + Open-Meteo clients, pipeline
-  tests/             pytest suite (offline) + trimmed real TomTom fixture
+  config/            Django settings, URLs and logging setup
+  planner/           API views and URLs, caching helper, throttling
+  routing/           settings and the TomTom client (more to come: weather, risk, ranking, pipeline)
+  tests/             pytest suite (offline)
 frontend/
   src/api/           API client and types
   src/components/    TripForm, PlanMap
