@@ -6,6 +6,7 @@ import { Recommendation } from './components/Recommendation';
 import { RouteCards } from './components/RouteCards';
 import { usePlan } from './hooks/usePlan';
 import { useTripPlaces } from './hooks/useTripPlaces';
+import TruckLoader from './components/TruckLoader';
 import { PlanStatus } from './components/PlanStatus';
 import { AppHeader } from './components/AppHeader';
 import { MapView } from './components/MapView';
@@ -38,6 +39,11 @@ export default function App() {
   return (
     <>
       <AppHeader />
+      {state.phase === 'posting' && (
+        <div className="page-loader" role="alert" aria-busy="true">
+          <TruckLoader width={320} label="Finding truck routes…" />
+        </div>
+      )}
       <main className="app-shell">
         <aside className="panel">
           <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit}
@@ -46,7 +52,7 @@ export default function App() {
           <PlanStatus state={state} interval={interval} onRetry={retry} />
           {result && (
             <section className="plan-results" aria-label="Scored routes">
-              <div className="section-heading"><h2>Compare routes</h2><span>02 — RESULTS</span></div>
+              <div className="section-heading"><h2>Compare routes</h2></div>
               <p className="result-trip">{result.origin.label} → {result.destination.label}</p>
               <p className="result-context">Depart {localTime(result.meta.departure)} · {result.meta.load_lb.toLocaleString()} lb cargo</p>
               <Recommendation recommendation={recommendation} routes={result.routes} interval={interval} />

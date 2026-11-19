@@ -1,6 +1,6 @@
 import { reverseGeocode } from '../api/client';
 import type { Place } from '../api/types';
-import { coordinatePlace, OUTSIDE_US_WARNING, type PlaceTarget, type TripLocation } from '../lib/places';
+import { coordinatePlace, type PlaceTarget, type TripLocation } from '../lib/places';
 
 export function createPlaceResolver(update: (target: PlaceTarget, location: TripLocation) => void) {
   const requests = {
@@ -37,7 +37,7 @@ export function createPlaceResolver(update: (target: PlaceTarget, location: Trip
         update(target, {
           // A reverse lookup changes the label, never the point picked by the user.
           place: { ...point, label: named.label },
-          warning: named.country !== 'US' || !named.found ? OUTSIDE_US_WARNING : null,
+          warning: null,
         });
       } catch {
         // Keep the coordinate label if naming fails: routing only needs lat/lon.

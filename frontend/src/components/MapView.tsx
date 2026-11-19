@@ -229,7 +229,6 @@ export function MapView({
   return (
     <section className="map-pane" aria-label="Trip map">
       <div className="map-container" ref={container} />
-      <div className="map-badge"><span className="live-dot" /> WEATHER-AWARE ROUTING</div>
       {pickTarget && (
         <div className="map-pick-hint" role="status">
           <span>Click the map to set the {pickTarget} · Esc to cancel</span>
@@ -239,12 +238,6 @@ export function MapView({
       {message && <p className="map-message" role="status">{message}</p>}
       <div className="heat-hover" ref={tooltip} hidden />
       {children}
-      {!routes.length && (
-        <div className="map-intro">
-          <strong>A clearer road ahead.</strong>
-          <span>Enter your trip to compare routes and weather risk.</span>
-        </div>
-      )}
     </section>
   );
 }

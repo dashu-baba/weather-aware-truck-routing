@@ -26,7 +26,7 @@ export function TripForm({ busy, hasPlan, onSubmit, places, pickTarget, onPlaceC
   const origin = places.origin.place;
   const destination = places.destination.place;
   const [departure, setDeparture] = useState(nextHourLocal);
-  const [load, setLoad] = useState(42000);
+  const [load, setLoad] = useState('');
 
   return (
     <form className="trip-form" onSubmit={event => {
@@ -36,10 +36,10 @@ export function TripForm({ busy, hasPlan, onSubmit, places, pickTarget, onPlaceC
         origin,
         destination,
         departure: new Date(departure).toISOString(),
-        load_lb: load,
+        load_lb: Number(load),
       });
     }}>
-      <div className="section-heading"><h2>Your trip</h2><span>01 — PLAN</span></div>
+      <div className="section-heading"><h2>Enter your trip to compare routes</h2></div>
       <PlaceInput label="Origin" value={origin} onChange={place => onPlaceChange('origin', place)}
         picking={pickTarget === 'origin'} onPick={() => onPick('origin')} warning={places.origin.warning} />
       <div className="swap-row">
@@ -56,7 +56,7 @@ export function TripForm({ busy, hasPlan, onSubmit, places, pickTarget, onPlaceC
         onChange={event => setDeparture(event.target.value)} />
       <label className="field-label" htmlFor="load">Cargo weight <span>lb</span></label>
       <input id="load" type="number" min="0" max="60000" step="500" required value={load}
-        onChange={event => setLoad(Number(event.target.value))} />
+        onChange={event => setLoad(event.target.value)} />
       <p className="field-note">Truck weight is added automatically.</p>
       <button type="submit" className="primary" disabled={!origin || !destination || busy}>
         {busy ? 'Planning…' : hasPlan ? 'Re-plan' : 'Plan routes'} <span aria-hidden="true">→</span>

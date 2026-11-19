@@ -3,23 +3,23 @@ import { expect, it } from 'vitest';
 import { PlaceInput } from './PlaceInput';
 import { TripForm } from './TripForm';
 import { initialTripPlaces } from '../hooks/tripPlacesReducer';
-import { OUTSIDE_US_WARNING } from '../lib/places';
+const WARNING = 'Check this location';
 
 it('shows the picked label, pressed picker and a warning associated with the input', () => {
   const html = renderToStaticMarkup(<PlaceInput label="Origin" value={{ label: 'Picked address', lat: 50, lon: -100 }}
-    onChange={() => {}} picking={true} onPick={() => {}} warning={OUTSIDE_US_WARNING} />);
+    onChange={() => {}} picking={true} onPick={() => {}} warning={WARNING} />);
   expect(html).toContain('value="Picked address"');
   expect(html).toContain('aria-label="Pick origin on map" aria-pressed="true"');
   expect(html).toContain('aria-describedby=');
-  expect(html).toContain(OUTSIDE_US_WARNING);
+  expect(html).toContain(WARNING);
   expect(html).toContain('Clear origin');
   expect(html).toContain('stroke="currentColor"');
 });
 
-it('allows coordinate-only and outside-US places to be submitted without waiting for naming', () => {
+it('allows coordinate-only places to be submitted without waiting for naming', () => {
   const html = renderToStaticMarkup(<TripForm busy={false} hasPlan={true} onSubmit={() => {}}
     places={{
-      origin: { place: { label: '0.0000, 0.0000', lat: 0, lon: 0 }, warning: OUTSIDE_US_WARNING },
+      origin: { place: { label: '0.0000, 0.0000', lat: 0, lon: 0 }, warning: WARNING },
       destination: { place: { label: 'Dallas', lat: 32, lon: -96 }, warning: null },
     }} pickTarget={null} onPlaceChange={() => {}} onPick={() => {}} onSwap={() => {}} />);
   expect(html).toContain('Re-plan');

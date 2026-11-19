@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { reverseGeocode } from '../api/client';
 import type { ReversePlace } from '../api/types';
 import { createPlaceResolver } from './placeResolver';
-import { coordinatePlace, OUTSIDE_US_WARNING } from '../lib/places';
+import { coordinatePlace } from '../lib/places';
 import { initialTripPlaces, tripPlacesReducer } from './tripPlacesReducer';
 
 vi.mock('../api/client', () => ({ reverseGeocode: vi.fn() }));
@@ -95,13 +95,6 @@ describe('map location resolution', () => {
     expect(update).toHaveBeenLastCalledWith('origin', { place: { label: named.label, lat: named.lat, lon: named.lon }, warning: null });
   });
 
-  it.each([{ country: 'CA', found: true }, { country: 'US', found: false }, { country: null, found: false }])('warns softly for outside/unknown points (%s)', async value => {
-    vi.mocked(reverseGeocode).mockResolvedValue({ ...named, ...value });
-    const update = vi.fn();
-    await createPlaceResolver(update).pick('origin', 50, -100);
-    expect(update).toHaveBeenLastCalledWith('origin', { place: { label: named.label, lat: 50, lon: -100 }, warning: OUTSIDE_US_WARNING });
-  });
-
   it('keeps the coordinate label and usable place when reverse geocoding fails', async () => {
     vi.mocked(reverseGeocode).mockRejectedValue(new Error('502'));
     const update = vi.fn();
@@ -117,7 +110,7 @@ it('wraps map longitudes while preserving ordinary coordinates exactly', () => {
 });
 
 it('swaps both places and warnings without modifying the original state', () => {
-  const state = tripPlacesReducer(initialTripPlaces, { type: 'set', target: 'origin', location: { place: named, warning: OUTSIDE_US_WARNING } });
+  const state = tripPlacesReducer(initialTripPlaces, { type: 'set', target: 'origin', location: { place: named, warning: 'Check this location' } });
   const swapped = tripPlacesReducer(state, { type: 'swap' });
   expect(swapped.destination).toBe(state.origin);
   expect(swapped.origin).toBe(state.destination);

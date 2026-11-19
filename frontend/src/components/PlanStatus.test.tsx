@@ -32,7 +32,7 @@ describe('PlanStatus', () => {
   });
 
   it('does not promise result cards during phase 3 and offers Retry after failure', () => {
-    expect(render(donePlan())).toContain('Weather scoring complete');
+    expect(render(donePlan())).not.toContain('Weather scoring complete');
     expect(render(donePlan())).not.toContain('compare your routes below');
     const failed = render(plan({ status: 'failed', error: 'Try again later.' }));
     expect(failed).toContain('role="alert"');
@@ -41,16 +41,13 @@ describe('PlanStatus', () => {
   });
 });
 
-it('uses TruckLoader only for posting/weather, retaining progress and the exact lifecycle labels', () => {
-  const posting = renderToStaticMarkup(<PlanStatus state={planReducer(initialPlanState, { type: 'submit' })} onRetry={() => {}} />);
-  expect(posting).toContain('truck-loader');
-  expect(posting).toContain('Finding truck routes…');
-  expect(posting).toContain('alt=""');
-  expect(posting).toContain('media="(prefers-reduced-motion: reduce)"');
-  expect(posting).toContain('truck-logo.png');
-  expect(posting).toContain('role="status" aria-live="polite"');
+it('keeps the local TruckLoader for weather only; the full-page loader covers route finding', () => {
+  const submitted = planReducer(initialPlanState, { type: 'submit' });
+  const posting = renderToStaticMarkup(<PlanStatus state={submitted} onRetry={() => {}} />);
+  expect(posting).not.toContain('truck-loader');
   expect(posting).toContain('Route planning progress');
   const weather = plan({ progress: { stage: 'checkpoints_25', done: 42, total: 100, percent: 42, queued: false } });
+  expect(render(weather)).toContain('truck-loader');
   expect(render(weather)).toContain('Weather for 25-mile checkpoints · 42%');
   expect(render(weather)).toContain('value="42"');
   expect(render(plan({ progress: { ...weather.progress, queued: true } }))).toContain('Waiting for the weather worker…');

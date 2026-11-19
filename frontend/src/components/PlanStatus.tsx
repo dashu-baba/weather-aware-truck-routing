@@ -30,7 +30,6 @@ export function PlanStatus({ state, interval = 25, onRetry }: Props) {
     <section className="plan-status" aria-label="Plan status">
       {phase === 'posting' && (
         <>
-          <TruckLoader label="Finding truck routes…" />
           <progress max="100" aria-label="Route planning progress" />
         </>
       )}
@@ -49,9 +48,6 @@ export function PlanStatus({ state, interval = 25, onRetry }: Props) {
             </div>
           )}
         </>
-      )}
-      {phase === 'done' && (
-        <p className="ready-label" role="status">✓ Weather scoring complete</p>
       )}
       {state.error && (
         <div className="error-box" role="alert">

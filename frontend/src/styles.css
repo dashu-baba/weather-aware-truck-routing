@@ -874,3 +874,11 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 799px) { .map-badge { display: none; } }
 
 .truck-loader picture { display: block; max-width: 100%; }
+
+.page-loader { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; overflow: hidden; background: rgba(3, 33, 62, .78); backdrop-filter: blur(3px); }
+.page-loader .truck-loader { font-size: 16px; font-weight: 600; color: #fff; background: none; padding: 0; overflow: visible; }
+.page-loader .truck-loader img { filter: drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+@media (prefers-reduced-motion: no-preference) {
+  .page-loader .truck-loader picture { animation: truck-drive 4s linear infinite; }
+}
+@keyframes truck-drive { 0% { transform: translateX(calc(-50vw - 100%)); } 100% { transform: translateX(calc(50vw + 100%)); } }

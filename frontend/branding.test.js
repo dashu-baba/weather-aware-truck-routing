@@ -12,7 +12,7 @@ describe('section 15 visual contracts', () => {
     expect(logo.equals(readFileSync(new URL('./public/favicon.png', import.meta.url)))).toBe(true);
     const html = read('./index.html');
     expect(html).toContain('<link rel="icon" type="image/png" href="/favicon.png"');
-    expect(html).toContain('<title>Weather-Aware Truck Routing</title>');
+    expect(html).toContain('<title>Truck Routing</title>');
   });
 
   it('reserves brand accent tokens for declarations and the header, with no accent-coloured interaction styles', () => {
