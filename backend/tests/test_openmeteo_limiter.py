@@ -19,6 +19,7 @@ HOURLY = {
     "wind_gusts_10m": [9.0],
     "wind_direction_10m": [180],
     "rain": [0.0],
+    "showers": [0.0],
     "snowfall": [0.0],
 }
 MINUTELY_BODY = '{"reason":"Minutely API request limit exceeded. Try again in one minute.","error":true}'

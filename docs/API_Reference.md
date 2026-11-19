@@ -89,6 +89,20 @@ Limited to 120 requests a minute per client. A plan is kept for 24 hours.
 | `error` | A short message when `status` is `failed`. Send the same `POST` again to retry; it continues where it stopped. |
 | `poll_after_ms` | How long to wait before polling again. `null` when polling is over. |
 
+Each checkpoint in `result.routes[].by_interval[interval].checkpoints` has a `weather` object
+(or `null` if no forecast is available). Values use the forecast hour nearest the checkpoint's ETA.
+
+| Weather field | Meaning |
+|---|---|
+| `wind_mph` | Sustained 10 m wind speed, mph |
+| `gust_mph` | Wind gust speed, mph |
+| `direction_deg` | Wind direction in degrees, measured clockwise from north |
+| `rain_in` | Total rain (`rain + showers`), in/hr, including thunderstorm showers |
+| `snow_in` | Snowfall, in/hr |
+| `time` | UTC forecast timestamp; precipitation totals cover the preceding hour |
+
+Weather measurements can be `null` when the provider has no value.
+
 Plans for the same trip and departure hour but a different load share one weather download, so the second
 one is scored almost at once. A plan whose forecast has expired (about 6 hours) reports `failed`; post it again.
 
@@ -105,6 +119,8 @@ status endpoint. Returns `409` until the weather is in.
   "vars": { "risk": [[0, 1, null, "…"]], "wind": ["…"], "gust": ["…"], "rain": ["…"], "snow": ["…"], "u": ["…"], "v": ["…"] }
 }
 ```
+
+`vars.rain` is total rain (`rain + showers`), in/hr, matching checkpoint `weather.rain_in`.
 
 Each layer in `vars` is indexed `[hour][cell]`, with `null` for cells outside the corridor or without a forecast.
 

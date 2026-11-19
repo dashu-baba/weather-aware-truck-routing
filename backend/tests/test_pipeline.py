@@ -51,6 +51,7 @@ class FakeProvider:
                 "wind_gusts_10m": [round(w * 1.4, 1) for w in wind],
                 "wind_direction_10m": [(int(seed * 10) + h * 7) % 360 for h in range(hours)],
                 "rain": rain,
+                "showers": [0.0] * hours,
                 "snowfall": snow,
             }
         return out

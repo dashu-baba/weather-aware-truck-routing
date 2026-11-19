@@ -5,7 +5,7 @@
 - **Place search.** Search a place by name, anywhere TomTom covers. The API can also name any point on a map (reverse geocoding).
 - **Weather at arrival time.** A checkpoint is placed every **10, 25 or 50 miles** (you choose). Each
   checkpoint gets the hourly forecast for the hour the truck is expected to be there, not the current weather.
-- **Load-aware risk.** Wind, rain and snow are classified into Low, Moderate, High, Severe or No Travel,
+- **Load-aware risk.** Wind (sustained), rain (including thunderstorm showers) and snow are classified into Low, Moderate, High, Severe or No Travel,
   and heavy loads raise the risk in strong wind (see [the rules](./Rules.md)).
 - **A recommendation with a reason.** Routes are ranked by No Travel, Severe and High miles, then
   average risk, then travel time. The UI shows which rule decided, e.g. *"fewer Severe miles"*. When every

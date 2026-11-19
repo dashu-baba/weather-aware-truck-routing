@@ -2,14 +2,22 @@
  
 | Condition | Low | Moderate | High | Severe | No Travel |
 |---|---|---|---|---|---|
-| Wind (mph) | < 25 | 25–34 | 35–44 | 45–54 | ≥ 55 |
+| Wind (mph) | < 25 | 25–<35 | 35–<45 | 45–<55 | ≥ 55 |
 | Rain (in/hr) | < 0.10 | 0.10–0.25 | 0.25–0.50 | 0.50–1.00 | > 1.00 |
 | Snow (in/hr) | < 0.5 | 0.5–1.0 | 1.0–2.0 | 2.0–3.0 | > 3.0 |
  
+**Values used**
+
+- **Wind:** sustained 10 m wind speed, not gusts (see [Assumptions](./Assumptions.md)).
+- **Rain:** Open-Meteo `rain + showers`, so thunderstorm rain counts.
+- **Snow:** Open-Meteo `snowfall`.
+
+Wind is in mph and precipitation in in/hr, at the forecast hour nearest the truck's ETA.
+
 **Load rules (applied to wind):**
 - Wind ≥ 55 mph → **No Travel** for any load.
-- Wind 45–54 mph with load > 30,000 lb → **No Travel**.
-- Wind 35–44 mph with load > 40,000 lb → **Severe**.
+- Wind 45 to below 55 mph with load > 30,000 lb → **No Travel**.
+- Wind 35 to below 45 mph with load > 40,000 lb → **Severe**.
 **Checkpoint risk** = the worst of the three conditions after the load rules.
  
 **Route ranking** compares in this order, and the first difference decides:

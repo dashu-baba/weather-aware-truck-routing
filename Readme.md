@@ -167,6 +167,13 @@ resuming, the queue and the worker thread), the plan endpoints (routes at once, 
 weather between loads, errors), and logging,
 including a check that the API key never appears in log output.
 
+The backend suite has **332 tests**, up from 244 before the rain and rule coverage was added:
+
+- `test_risk.py`: hazard boundaries, strict load cutoffs, hazard reasons and wind selection.
+- `test_ranking.py`: ranking priority, ties, explanations and distance-weighted scores.
+- `test_checkpoints.py`: spacing, segment totals, progress interpolation and ETAs.
+- `test_openmeteo_rain.py`: total rain, missing values, provider requests and old-cache refetching.
+
 The frontend tests cover the API client and its error messages, the plan reducer and the polling lifecycle
 (timing, cancellation, retries and the heatmap fallback) with fake timers, the result components, route
 interpolation and risk pieces, the focus styling and the time formatting.

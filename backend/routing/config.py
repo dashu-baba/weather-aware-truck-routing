@@ -1,6 +1,6 @@
 """All tunable assumptions live here, so they are easy to find, test and document.
 
-Every value below is referenced from docs/01-requirements.md ("Assumptions").
+Every value below is referenced from docs/Assumptions.md ("Assumptions").
 Change a value here -> update that table too.
 """
 

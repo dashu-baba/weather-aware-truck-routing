@@ -27,8 +27,16 @@ value there and update this page.
   The forecast model itself is about 11 km wide, so it cannot resolve a single mountain pass.
 - A checkpoint with **no forecast** (for example beyond the forecast range) is scored Low and reported in
   `meta.warnings`.
-- Wind uses the **sustained** speed (`wind_speed_10m`), not gusts. Gusts are shown in the popup and on the map.
+- **Rain** is Open-Meteo `rain + showers`: `rain` covers large-scale systems and `showers` adds convective
+  thunderstorm rain, which can be the heaviest rain on a trip.
+- Wind uses the **sustained** 10 m speed (`wind_speed_10m`). The brief's steps match sustained-wind scales.
+  NWS gust thresholds are 15–18 mph higher: Wind Advisory uses sustained 31–39 mph or gusts 46–57 mph;
+  High Wind Warning uses sustained ≥ 40 mph or gusts ≥ 58 mph. Applying the brief's table to gusts would rate
+  ordinary breezy days High. Gusts are still shown in the popup and on the map.
   `WIND_METRIC=gust` or `max` changes this for the whole backend.
+- Open-Meteo rain, showers and snowfall are totals for the hour **before** each timestamp, read as in/hr.
+  Matching the nearest forecast hour means an ETA of 14:10 uses the 13:00–14:00 total. This is an accepted
+  approximation of conditions at arrival.
 
 ### Risk scoring
 

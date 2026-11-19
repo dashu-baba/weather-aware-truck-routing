@@ -6,7 +6,8 @@ open-meteo Key facts:
     minute and retry on HTTP 429 (see OpenMeteoProvider).
   * Many locations per request (comma-separated latitude/longitude) -> list of results, same order.
   * Ask for mph and inches so values compare directly with the brief's thresholds.
-  * Hourly rain / snowfall are totals for the preceding hour == in/hr.
+  * Hourly rain + showers (= total rain) and snowfall are totals for the preceding hour,
+    so they read as in/hr.
   * timezone=GMT -> every "time" string is UTC ("2026-11-20T14:00").
 """
 
@@ -26,7 +27,7 @@ from . import config
 
 logger = logging.getLogger(__name__)
 
-HOURLY_VARS = ("wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "rain", "snowfall")
+HOURLY_VARS = ("wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "rain", "showers", "snowfall")
 Key = tuple[float, float]
 
 
@@ -209,6 +210,13 @@ class OpenMeteoProvider:
         raise RateLimited("Open-Meteo rate limit")  # pragma: no cover
 
 
+def _total_rain(series: dict, i: int) -> float | None:
+    """Preceding-hour total, retaining missing weather when neither component is known."""
+    values = [series[name][i] for name in ("rain", "showers") if name in series]
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None
+
+
 class WeatherStore:
     """Fetch each rounded location ONCE for a time window, then answer point/hour lookups from memory.
 
@@ -252,7 +260,7 @@ class WeatherStore:
             "wind_mph": s["wind_speed_10m"][i],
             "gust_mph": s["wind_gusts_10m"][i],
             "direction_deg": s.get("wind_direction_10m", [None] * len(s["time"]))[i],
-            "rain_in": s["rain"][i],
+            "rain_in": _total_rain(s, i),
             "snow_in": s["snowfall"][i],
         }
 
