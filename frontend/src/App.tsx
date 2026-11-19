@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import type { PlanRequest } from './api/types';
+import { usePlan } from './hooks/usePlan';
+import { PlanStatus } from './components/PlanStatus';
 import { MapView } from './components/MapView';
 import { TripForm } from './components/TripForm';
 
 export default function App() {
-  const [trip, setTrip] = useState<PlanRequest | null>(null);
+  const { state, submit, retry } = usePlan();
+  const busy = state.phase === 'posting' || state.phase === 'weather';
 
   return (
     <main className="app-shell">
@@ -16,18 +17,14 @@ export default function App() {
             <p>PLAN WITH THE FORECAST AHEAD</p>
           </div>
         </header>
-        <TripForm busy={false} hasPlan={false} onSubmit={setTrip} />
-        {trip && (
-          <p className="trip-ready" role="status">
-            Trip details ready: {trip.origin.label} → {trip.destination.label}.
-          </p>
-        )}
+        <TripForm busy={busy} hasPlan={state.hasPlan} onSubmit={submit} />
+        <PlanStatus state={state} onRetry={retry} />
         <footer>
           Routing © TomTom · Weather data by Open-Meteo.com (CC BY 4.0) ·
           Map © OpenFreeMap, © OpenStreetMap contributors
         </footer>
       </aside>
-      <MapView />
+      <MapView routes={state.routes} />
     </main>
   );
 }
