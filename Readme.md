@@ -7,22 +7,32 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 
 **Live app:** 
 
+## Status
+
+| Part | State |
+|---|---|
+| Backend: routes, background weather scoring, recommendation, heatmap data, place search and reverse geocoding | Built and tested |
+| Frontend: trip form with place search, routes on the map within seconds, live progress, recommendation, route cards, risk-coloured checkpoints and popups | Built and tested |
+| Frontend: heatmap with the 0–48 h slider, trucks on the timeline, picking places on the map | In progress |
+| Deployment | Not done yet |
+
 ## Contents
  
 1. [Features](./docs/Features.md)
 2. [Rules](./docs/Rules.md)
-3. [Architecture](./docs/Architecture.md)
-4. [Tech stack](./docs/TechStack.md)
-5. [Running locally](#running-locally)
-6. [Environment variables](#environment-variables)
-7. [API reference](./docs/API_Reference.md)
-8. [Testing](#testing)
-9. [Project structure](#project-structure)
-10. [Credits](#credits)
+3. [Assumptions and limits](./docs/Assumptions.md)
+4. [Architecture](./docs/Architecture.md)
+5. [Tech stack](./docs/TechStack.md)
+6. [Running locally](#running-locally)
+7. [Environment variables](#environment-variables)
+8. [API reference](./docs/API_Reference.md)
+9. [Testing](#testing)
+10. [Project structure](#project-structure)
+11. [Credits](#credits)
 
 ## Running locally
  
-**You'll need:** Python 3.12+, Node.js 20+, and a free TomTom API key from
+**You'll need:** Python 3.12+, Node.js 20.19+ (or 22.12+), and a free TomTom API key from
 [developer.tomtom.com](https://developer.tomtom.com). Open-Meteo needs no key.
 
 ### Backend
@@ -36,12 +46,30 @@ python manage.py migrate        # creates backend/db.sqlite3 (plan and weather-j
 python manage.py runserver      # http://localhost:8000/api/health
 ```
 
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev                     # http://localhost:5173
+```
+
+Run it with the backend above. Vite proxies `/api/*` to `http://localhost:8000`, so no configuration is needed
+locally. To use a backend on another host, copy `frontend/.env.example` to `frontend/.env` and set `VITE_API_URL`
+to its origin without a trailing slash, and add the frontend's origin to the backend's `CORS_ALLOWED_ORIGINS`.
+`npm run build` creates a production bundle in `frontend/dist`. See [`frontend/README.md`](./frontend/README.md)
+for the structure and a manual checklist.
+
 ### Quick API check
 
 ```bash
 curl "http://localhost:8000/api/health"
 curl "http://localhost:8000/api/geocode?q=Dallas"
+curl "http://localhost:8000/api/reverse?lat=32.7767&lon=-96.797"
 ```
+
+To plan a trip, `POST /api/plan` with an origin, a destination, a departure and a load, then poll the `plan_id` it
+returns. The [API reference](./docs/API_Reference.md) has the request and every field of the response.
 
 ## Environment variables
 
@@ -60,6 +88,14 @@ curl "http://localhost:8000/api/geocode?q=Dallas"
 | `JOB_STALE_S` | no | `300` | A running weather job that reports no progress for this long is treated as dead and requeued. |
 | `JOB_WORKER` | no | `external` | `thread` (default): the web process runs the weather jobs itself, starting on the first plan request. `external`: run `python manage.py run_jobs` as a separate process instead. |
 | `JOB_WINDOW_HOURS` | no | `72` | Hours of forecast each weather job fetches from the departure hour. Trips longer than this are refused with `422`. |
+| `WIND_METRIC` | no | `gust` | Which wind speed the thresholds use: `sustained` (default), `gust` or `max` (the larger of the two). |
+| `AVG_RISK_TIE_EPS` | no | `0.05` | How close two routes' average risk must be to count as a tie in the ranking. Default `0` (strict). |
+
+**Frontend (`frontend/.env`)**
+
+| Variable | Required | Example | Purpose |
+|---|---|---|---|
+| `VITE_API_URL` | no | `https://api.example.com` | Origin of the backend, without a trailing slash. Leave empty in development, where Vite proxies `/api`. It is added to every API path, including the heatmap URL. |
 
 Logs go to stderr in the format `time LEVEL logger: message`. The TomTom API key is never written to the logs.
 
@@ -110,7 +146,7 @@ By default (`JOB_WORKER=thread`) you don't need to run this: the web process sta
 time a plan is requested. Run **one** web process (for example one Gunicorn worker) so a single worker holds the
 Open-Meteo budget. For several web processes, set `JOB_WORKER=external` and run one `run_jobs` process.
 
-- **Resuming:** forecasts already fetched are saved (every 200 locations and after each stage), so a failed or
+- **Resuming:** forecasts already fetched are saved (every 50 locations and after each stage), so a failed or
   restarted job continues where it stopped. A running job with no progress for `JOB_STALE_S` seconds is requeued
   when a worker starts.
 - **Sharing:** another plan for the same trip, with a different load, adds only the locations its routes need
@@ -123,17 +159,26 @@ Open-Meteo budget. For several web processes, set `JOB_WORKER=external` and run 
 ```bash
 cd backend
 python -m pytest -q             # offline tests, no network or API key needed
-ruff check .                    # lint (config in backend/ruff.toml)
+ruff check . && ruff format --check .   # lint and formatting (config in backend/ruff.toml)
+
+cd ../frontend
+npm test                        # Vitest, offline
+npm run lint                    # ESLint, no warnings allowed
+npm run build                   # strict TypeScript check and production bundle
 ```
 
 Tests use fake HTTP sessions and fake clocks, so they never call TomTom or Open-Meteo. They cover cache
-keys, the TomTom client's response and error parsing, the geocode endpoint (validation, caching, 502
-handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
+keys, the TomTom client's response and error parsing, the geocode and reverse-geocode endpoints (validation,
+caching, 502 handling), request throttling, the Open-Meteo limiter (rate-limit headers, hourly and daily budgets, 429
 handling), the planning pipeline (preparing routes once and scoring them for different loads), the plan and
 weather-job records (keys, expiry cleanup, file safety), the job worker (staged fetching, progress, failures and
 resuming, the queue and the worker thread), the plan endpoints (routes at once, progress polling, sharing the
 weather between loads, errors), and logging,
 including a check that the API key never appears in log output.
+
+The frontend tests cover the API client and its error messages, the plan reducer and the polling lifecycle
+(timing, cancellation, retries and the heatmap fallback) with fake timers, the result components, route
+interpolation and risk pieces, the focus styling and the time formatting.
 
 ## Project structure
  
@@ -145,10 +190,11 @@ backend/
   tests/             pytest suite (offline)
 frontend/
   src/api/           API client and types
-  src/components/    TripForm, PlanMap
-  src/map/           MapLibre layers, heatmap renderer, wind particles
-docs/                requirements and assumptions, architecture, API notes, algorithms
-archive/poc/         original proof of concept (CLI + static map)
+  src/hooks/         plan state machine (reducer, polling lifecycle, usePlan)
+  src/components/    TripForm, PlaceInput, PlanStatus, Recommendation, IntervalToggle, RouteCards, MapView
+  src/map/           basemap, route and checkpoint GeoJSON, MapLibre layers, popups, palette
+  src/lib/           time and distance formatting, route ranking helpers
+docs/                features, rules, assumptions, architecture, tech stack, API reference
 ```
 
 ## Credits

@@ -18,3 +18,14 @@
 3. fewest **High** miles;
 4. lowest **average risk** (weighted by distance);
 5. shortest **travel time**.
+
+**How the numbers are applied**
+- Wind means the **sustained** speed, not gusts.
+- Weather is matched at the checkpoint's ETA, to the nearest forecast hour. A checkpoint with no forecast is scored Low
+  and noted in the result's warnings.
+- A checkpoint's risk covers the stretch before it, and miles and average risk are weighted by that distance.
+- The ranges overlap at their edges. A value equal to a range's lower bound belongs to the higher level (wind 25 is
+  Moderate), except No Travel: wind at least 55 is inclusive, while rain above 1.00 and snow above 3.0 are exclusive (rain
+  1.00 is Severe, 1.01 is No Travel).
+
+See [Assumptions](./Assumptions.md) for the rest, including what the rules do not cover (ice, fog, closures).
