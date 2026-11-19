@@ -1,4 +1,4 @@
-# Frontend — phases 1–5
+# Frontend — phases 1–6
 
 ```sh
 npm install
@@ -30,8 +30,16 @@ only redraws the image: it makes no request and rebuilds no GeoJSON. Add
 `?debug=1` to the address to log frame times to the console and to expose the
 renderer as `window.__heatfield`.
 
-Trucks that move with the slider and playback belong to phase 6. Map picking
-and draggable pins belong to phase 7.
+Three route-coloured truck markers move with the forecast hour, using each route's
+own departure and per-vertex elapsed times. Before departure they stay at the
+origin; on arrival they park at the destination at 50% opacity, with an `arrived`
+title. Play advances one forecast hour every 600 ms and loops after hour 47.
+Pause holds the current hour. Dragging or using the slider's adjustment keys
+pauses playback; rapid inputs are coalesced into one animation frame. A new
+heatmap resets playback to hour 0, paused. Layer, interval and focus changes
+leave playback running.
+
+Map picking and draggable pins belong to phase 7.
 
 ## Heatmap
 
@@ -45,6 +53,17 @@ and draggable pins belong to phase 7.
 - `components/TimeBar.tsx`, `components/Legend.tsx`: the slider, label, layer toggle and legend.
 - `hooks/useHeatfield.ts`: builds the renderer once the heatmap has loaded. A heatmap that cannot be drawn
   becomes a message in the time bar, and the scored plan stays usable.
+
+## Trucks and playback
+
+- `map/trucks.ts`: HTML marker creation, time interpolation via `pointAtTime`,
+  departure/arrival labels, arrival opacity and marker cleanup.
+- `hooks/playbackReducer.ts`: play/pause, bounded seeks, hourly ticks and looping.
+- `hooks/usePlayback.ts`: the 600 ms timer, animation-frame slider updates and
+  cleanup on timeline replacement/unmount.
+- `components/MapView.tsx`: creates markers only when the routes arrive or change;
+  an hour change moves the existing markers without changing GeoJSON sources.
+- `components/TimeBar.tsx`: accessible Play/Pause and slider pointer/keyboard pause.
 
 ## Planning lifecycle
 
@@ -67,7 +86,7 @@ route data or moving the map; each new submission fits its first routes once.
 
 - [x] `npm run build`: strict TypeScript and production bundling pass.
 - [x] `npm run lint`: no errors or warnings.
-- [x] `npm test`: 136 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
+- [x] `npm test`: 147 tests cover the API client, basemap, lifecycle, result components, interpolation, route pieces, checkpoint coordinates, risk-mile bars, local/UTC formatting, focus styling, the risk rules, the heatmap renderer and its controls.
 - [x] Map appears before a trip, centered on the US, with one map canvas in StrictMode.
 - [x] MapLibre worker loads through Vite; the basemap tiles and labels render.
 - [x] Real Dallas/Atlanta place searches return through `/api/geocode`.
@@ -139,5 +158,25 @@ used up, so a new weather download was not possible that day).
   row 0 in the south, Mercator row alignment, the corridor clip, the 60-frame cache, idle pre-rendering, the
   layer glue, the tooltip placement, the legend and the time bar.
 
-No new dependencies were added for phases 2–5. The production build reports
+## Phase 6 review checks
+
+Browser checks used a previously completed real Dallas → Atlanta plan read from
+`GET /api/plan/<id>` and its heatmap. The browser test supplied that cached response
+to the form's POST handler, so it did not start another weather job.
+
+- [x] Three labelled route-coloured markers appear; at hour 7 their positions match
+  `pointAtTime` using forecast start minus each route's own departure.
+- [x] At hour 47 all trucks are at their destinations, labelled `arrived`, at 50% opacity;
+  MapLibre's opacity API preserves the fade after panning.
+- [x] Play advances hourly (observed updates at 634 ms and 1,254 ms); Pause holds the hour.
+- [x] Playback loops 47 → 0 and pauses on slider pointer-down.
+- [x] The same three marker elements survive seeks and playback.
+- [x] Playback and slider changes make zero requests and zero GeoJSON source updates.
+- [x] StrictMode hook probe: only one timer is active, rapid seeks coalesce to the
+  last hour, replacement resets the clock, and unmount clears timers/animation frames.
+- [x] Unit tests cover before/during/after departure, departure minutes and UTC offsets,
+  arrival fading, play/pause, looping, seek bounds, marker reuse/removal and disabled controls.
+- [x] The mobile time bar fits without horizontal overflow; no browser console errors.
+
+No new dependencies were added for phases 2–6. The production build reports
 a bundle-size advisory for MapLibre; TypeScript compilation and bundling succeed.

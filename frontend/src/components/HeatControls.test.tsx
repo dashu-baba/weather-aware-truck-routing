@@ -6,7 +6,7 @@ import { TimeBar, hourLabel } from './TimeBar';
 const START = '2026-11-20T08:00:00Z';
 const noop = () => undefined;
 const bar = (props: Partial<Parameters<typeof TimeBar>[0]> = {}) => renderToStaticMarkup(
-  <TimeBar start={START} hours={48} hour={14} layer="wind" disabled={false} note="Loading weather map…" onHour={noop} onLayer={noop} {...props} />,
+  <TimeBar start={START} hours={48} hour={14} layer="wind" disabled={false} note="Loading weather map…" playing={false} onTogglePlay={noop} onPause={noop} onHour={noop} onLayer={noop} {...props} />,
 );
 
 describe('hourLabel', () => {
@@ -21,6 +21,12 @@ describe('hourLabel', () => {
 });
 
 describe('TimeBar', () => {
+  it('shows an accessible Play/Pause button and disables playback for a single hour', () => {
+    expect(bar()).toContain('aria-label="Play forecast"');
+    expect(bar({ playing: true })).toContain('aria-label="Pause playback" aria-pressed="true"');
+    expect(bar({ hours: 1 })).toContain('disabled="" aria-label="Play forecast"');
+  });
+
   it('has a slider for hours 0 to 47 and shows the label of the chosen hour', () => {
     const html = bar();
     expect(html).toContain('type="range"');
@@ -42,7 +48,7 @@ describe('TimeBar', () => {
     const html = bar({ disabled: true, start: null });
     expect(html).toContain('Loading weather map…');
     expect(html).not.toContain('+14h');
-    expect((html.match(/disabled=""/g) ?? []).length).toBe(6); // the slider and five layer buttons
+    expect((html.match(/disabled=""/g) ?? []).length).toBe(7); // Play, the slider and five layer buttons
   });
 });
 

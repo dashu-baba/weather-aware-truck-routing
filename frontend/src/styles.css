@@ -761,3 +761,38 @@ progress {
   .time-bar { left: 8px; right: 8px; bottom: 30px; padding: 8px 10px; }
   .time-bar__label { font-size: 11.5px; white-space: normal; text-align: left; }
 }
+
+.truck-marker {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font: 700 12px/1 system-ui, sans-serif;
+  box-shadow: 0 1px 5px #0006;
+  user-select: none;
+}
+
+.time-bar__play {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--primary, #03213e);
+  font-size: 14px;
+}
+
+.time-bar__play:hover:not(:disabled) {
+  background: var(--info-bg, #eef3fa);
+}
+
+@media (max-width: 799px) {
+  .time-bar__row { flex-wrap: wrap; gap: 8px; }
+  .time-bar__label { flex-basis: 100%; }
+  .time-bar__slider { min-width: 0; }
+}

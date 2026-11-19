@@ -11,6 +11,8 @@ import type { Heatfield, HeatLayer } from '../map/heatfield';
 import { drawHeatFrame, hideHeatfield, showHeatfield } from '../map/heatLayers';
 import { attachHover, type HoverContext } from '../map/hover';
 import { isDebug } from '../hooks/useHeatfield';
+import { createTrucks } from '../map/trucks';
+import { parseUtc } from '../lib/format';
 
 // Vite must bundle the worker explicitly: MapLibre's relative default URL is
 // otherwise resolved inside Vite's optimized dependency directory in development.
@@ -40,6 +42,7 @@ export function MapView({
   const fitted = useRef<RouteEntry[] | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const checkpointContext = useRef<{ result: PlanResult | null; interval: number }>({ result: null, interval: 25 });
+  const trucks = useRef<ReturnType<typeof createTrucks> | null>(null);
   const heatCanvas = useRef<HTMLCanvasElement | null>(null);
   const tooltip = useRef<HTMLDivElement>(null);
   const hoverContext = useRef<HoverContext | null>(null);
@@ -137,6 +140,26 @@ export function MapView({
     const map = mapRef.current;
     if (ready && map) applyRouteFocus(map, focusId);
   }, [ready, focusId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const markers = createTrucks(map, routes);
+    trucks.current = markers;
+    return () => {
+      markers.remove();
+      trucks.current = null;
+    };
+  }, [ready, routes]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const frame = requestAnimationFrame(() => {
+      const timestamp = heatfield ? parseUtc(heatfield.start).getTime() + hour * 3_600_000 : null;
+      trucks.current?.update(timestamp);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ready, routes, heatfield, hour]);
 
   // The weather image is added when a heatmap arrives, replaced by the next plan's, and removed when a plan starts.
   useEffect(() => {

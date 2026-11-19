@@ -11,6 +11,7 @@ import { TripForm } from './components/TripForm';
 import { Legend } from './components/Legend';
 import { TimeBar } from './components/TimeBar';
 import { useHeatfield } from './hooks/useHeatfield';
+import { usePlayback } from './hooks/usePlayback';
 import type { HeatLayer } from './map/heatfield';
 
 export default function App() {
@@ -27,9 +28,9 @@ export default function App() {
   const focusId = selectedId ?? recommendation?.best ?? null;
   const busy = state.phase === 'posting' || state.phase === 'weather';
   // The heatmap controls. Changing them never calls the server: every frame is drawn from the heatmap already loaded.
-  const [heat, setHeat] = useState<{ layer: HeatLayer; hour: number }>({ layer: 'risk', hour: 0 });
+  const [layer, setLayer] = useState<HeatLayer>('risk');
   const { heatfield, error: heatError } = useHeatfield(result, state.heatmap);
-  const hour = heatfield ? Math.min(heat.hour, heatfield.hours - 1) : 0;
+  const { hour, playing, pause, seek, toggle } = usePlayback(heatfield);
 
   return (
     <main className="app-shell">
@@ -66,13 +67,13 @@ export default function App() {
         </footer>
       </aside>
       <MapView routes={state.routes} result={result} interval={interval} focusId={focusId}
-        heatfield={heatfield} heatLayer={heat.layer} hour={hour}>
-        {heatfield && <Legend layer={heat.layer} />}
+        heatfield={heatfield} heatLayer={layer} hour={hour}>
+        {heatfield && <Legend layer={layer} />}
         {state.phase === 'done' && !state.warning && (
-          <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={heat.layer}
+          <TimeBar start={heatfield?.start ?? null} hours={heatfield?.hours ?? 48} hour={hour} layer={layer}
             disabled={!heatfield} note={heatError ?? 'Loading the weather map…'}
-            onHour={value => setHeat(current => ({ ...current, hour: value }))}
-            onLayer={layer => setHeat(current => ({ ...current, layer }))} />
+            playing={playing} onTogglePlay={toggle} onPause={pause}
+            onHour={seek} onLayer={setLayer} />
         )}
       </MapView>
     </main>
