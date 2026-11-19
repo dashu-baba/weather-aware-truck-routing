@@ -1,0 +1,14 @@
+export type Position = [number, number];
+export type Place = { label: string; lat: number; lon: number };
+export type SearchPlace = Place & { type?: string };
+export type ReversePlace = Place & { country: string | null; found: boolean };
+export type PlanRequest = { origin: Place; destination: Place; departure: string; load_lb: number };
+export type RouteEntry = { id: string; label: string; source: string; summary: { distance_mi: number; duration_s: number; departure: string; arrival: string }; geometry: Position[]; times: number[] };
+export type Risk = 0 | 1 | 2 | 3 | 4;
+export type Checkpoint = { mile: number; lat: number; lon: number; elapsed_s: number; eta: string; segment_mi: number; weather: { time: string; wind_mph: number; gust_mph: number; rain_in: number; snow_in: number } | null; risk: Risk; risk_label?: string; levels: { wind: number; rain: number; snow: number } | null; reasons: string[] };
+export type Score = { no_travel_mi: number; severe_mi: number; high_mi: number; avg_risk: number; duration_s: number; max_risk: number; drivable: boolean };
+export type Recommendation = { best: string | null; order: string[]; reason: string; all_blocked: boolean };
+export type ScoredRoute = RouteEntry & { by_interval: Record<string, { checkpoints: Checkpoint[]; score: Score }> };
+export type PlanResult = { meta: { departure: string; load_lb: number; gross_weight_kg: number; intervals: number[]; default_interval: number; levels: string[]; warnings: string[]; assumptions: { wind_metric: 'sustained' | 'gust' | 'max'; truck_tare_lb: number } }; origin: Place; destination: Place; routes: ScoredRoute[]; recommendation: Record<string, Recommendation> };
+export type PlanStatus = { plan_id: string; status: 'weather' | 'done' | 'failed'; routes: RouteEntry[]; progress: { stage: string; done: number; total: number; percent: number; queued: boolean }; partial: { intervals: Record<string, { recommendation: Recommendation; scores: Record<string, Score> }> } | null; result: PlanResult | null; heatmap_url: string | null; error: string | null; poll_after_ms: number | null };
+export type Heatmap = { mode: 'hull'; start: string; hours: number; polygon: Position[]; grid: { lat0: number; lon0: number; step: number; nrows: number; ncols: number }; vars: Record<'risk' | 'wind' | 'gust' | 'rain' | 'snow' | 'u' | 'v', (number | null)[][]> };
