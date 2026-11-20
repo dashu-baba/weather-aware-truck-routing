@@ -14,7 +14,7 @@ describe('PlanStatus', () => {
   });
 
   it('labels queued jobs, heatmap work and unknown stages', () => {
-    expect(stageLabel('heatmap', true)).toBe('Waiting for the weather worker…');
+    expect(stageLabel('heatmap', true)).toBe('Checking weather along each route…');
     expect(stageLabel('heatmap', false)).toBe('Heatmap grid');
     expect(stageLabel('future-stage', false)).toBe('Fetching weather');
   });
@@ -50,7 +50,7 @@ it('keeps the local TruckLoader for weather only; the full-page loader covers ro
   expect(render(weather)).toContain('truck-loader');
   expect(render(weather)).toContain('Weather for 25-mile checkpoints · 42%');
   expect(render(weather)).toContain('value="42"');
-  expect(render(plan({ progress: { ...weather.progress, queued: true } }))).toContain('Waiting for the weather worker…');
+  expect(render(plan({ progress: { ...weather.progress, queued: true } }))).toContain('Checking weather along each route…');
   expect(render(donePlan())).not.toContain('truck-loader');
   expect(render(donePlan())).not.toContain('Downloading weather grid');
   expect(render(plan({ status: 'failed', error: 'Failed' }))).not.toContain('truck-loader');

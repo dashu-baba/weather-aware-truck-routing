@@ -19,7 +19,7 @@ vi.mock('maplibre-gl', () => ({
 }));
 afterEach(() => { vi.unstubAllGlobals(); vi.mocked(Marker).mockClear(); });
 
-it('creates draggable A/B pins, moves/relabels existing pins, routes dragend, and removes cleared pins', () => {
+it('creates draggable start/destination pins with icons, not route letters, moves/relabels existing pins, routes dragend, and removes cleared pins', () => {
   vi.stubGlobal('document', { createElement: () => ({ setAttribute: vi.fn() }) });
   const pick = vi.fn();
   const pins = createPlacePins({} as Map, pick);
@@ -33,8 +33,14 @@ it('creates draggable A/B pins, moves/relabels existing pins, routes dragend, an
   expect(Marker).toHaveBeenCalledTimes(2);
   expect(Marker).toHaveBeenCalledWith(expect.objectContaining({ draggable: true, anchor: 'bottom' }));
   const markers = vi.mocked(Marker).mock.results.map(result => result.value);
-  expect(markers[0].getElement().textContent).toBe('A');
-  expect(markers[1].getElement().textContent).toBe('B');
+  expect(markers[0].getElement().className).toBe('place-pin place-pin--origin');
+  expect(markers[1].getElement().className).toBe('place-pin place-pin--destination');
+  for (const marker of markers) {
+    expect(marker.getElement().innerHTML).toContain('<svg');
+    expect(marker.getElement().textContent).toBeUndefined();
+  }
+  expect(markers[0].getElement().title).toBe('Start: Dallas. Drag to move.');
+  expect(markers[1].getElement().title).toBe('Destination: Atlanta. Drag to move.');
   pins.update({ ...places, origin: { place: { label: 'New label', lat: 32, lon: -96 }, warning: null } });
   expect(markers[0].setLngLat).toHaveBeenCalledTimes(1);
   expect(markers[0].getElement().title).toContain('New label');

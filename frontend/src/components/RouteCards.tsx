@@ -11,6 +11,13 @@ type Props = {
   onFocus: (id: string) => void;
 };
 
+// "tomtom-via" routes are the extra detours the server asks for when TomTom returns fewer than three.
+export function sourceLabel(source: string): string {
+  if (source === 'tomtom') return 'TomTom';
+  if (source === 'tomtom-via') return 'TomTom detour';
+  return source;
+}
+
 export function RouteCards({ routes, recommendation, interval, focusId, onFocus }: Props) {
   return (
     <div className="route-cards" aria-label="Ranked routes">
@@ -39,10 +46,10 @@ export function RouteCards({ routes, recommendation, interval, focusId, onFocus 
                 <span><span>No Travel miles</span>{miles(scored.score.no_travel_mi)}</span>
                 <span><span>Severe miles</span>{miles(scored.score.severe_mi)}</span>
                 <span><span>High miles</span>{miles(scored.score.high_mi)}</span>
-                <span><span>Average risk</span>{scored.score.avg_risk.toFixed(2)}</span>
+                <span><span>Average risk</span>{scored.score.avg_risk.toFixed(3)}</span>
                 <span><span>Worst level</span>{LEVELS[scored.score.max_risk] ?? 'Unknown'}</span>
               </>}
-              <span><span>Source</span>{route.source}</span>
+              <span><span>Source</span>{sourceLabel(route.source)}</span>
             </span>
             {scored ? (
               <span className="riskbar" role="img"
@@ -53,6 +60,7 @@ export function RouteCards({ routes, recommendation, interval, focusId, onFocus 
                 ))}
               </span>
             ) : <span className="status-note">Scoring unavailable for this interval.</span>}
+            {route.warnings?.map(note => <span key={note} className="route-note">{note}</span>)}
           </button>
         );
       })}

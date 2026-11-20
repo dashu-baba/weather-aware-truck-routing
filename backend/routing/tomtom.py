@@ -149,6 +149,7 @@ class ParsedRoute:
     traffic_delay_s: float = 0.0
     warnings: list[str] = field(default_factory=list)
     source: str = "tomtom"
+    non_truck_mi: float = 0.0  # miles where TomTom could not apply truck rules, ignoring short connections
 
 
 def _progress_entries(raw: list[dict], index_offset: int = 0) -> list[tuple[int, float]]:
@@ -159,6 +160,30 @@ def _progress_entries(raw: list[dict], index_offset: int = 0) -> list[tuple[int,
         if idx is not None and t is not None:
             out.append((int(idx) + index_offset, float(t)))
     return out
+
+
+# TomTom marks stretches where it could not apply truck rules with travelMode "other". Most are a few hundred
+# metres where a geocoded start, end or via-point joins a truck road, so only longer ones are worth showing.
+MIN_NON_TRUCK_MI = 0.5
+
+
+def _non_truck_miles(sections: list[dict], cum_m: list[float]) -> float:
+    """Total miles of travelMode=other sections that are at least MIN_NON_TRUCK_MI long."""
+    total = 0.0
+    for s in sections:
+        if s.get("sectionType") != "TRAVEL_MODE" or str(s.get("travelMode", "")).lower() != "other":
+            continue
+        start, end = s.get("startPointIndex"), s.get("endPointIndex")
+        if not isinstance(start, int) or not isinstance(end, int) or not 0 <= start < end < len(cum_m):
+            logger.debug("travelMode=other section without usable point indexes: %s", s)
+            continue
+        miles = (cum_m[end] - cum_m[start]) / config.M_PER_MI
+        if miles < MIN_NON_TRUCK_MI:
+            logger.debug("travelMode=other connection ignored: %.2f mi (points %d-%d)", miles, start, end)
+        else:
+            logger.info("travelMode=other stretch: %.2f mi (points %d-%d)", miles, start, end)
+            total += miles
+    return round(total, 1)
 
 
 def parse_route(route: dict) -> ParsedRoute:
@@ -180,13 +205,7 @@ def parse_route(route: dict) -> ParsedRoute:
     if not progress:
         warnings.append("no progress points in response; ETAs spread uniformly by distance")
 
-    others = [
-        s
-        for s in route.get("sections", [])
-        if s.get("sectionType") == "TRAVEL_MODE" and str(s.get("travelMode", "")).lower() == "other"
-    ]
-    if others:
-        warnings.append(f"{len(others)} section(s) where truck mode could not be applied (travelMode=other)")
+    non_truck_mi = _non_truck_miles(route.get("sections", []), cumulative_m(pts) if pts else [])
 
     length_m = float(summary.get("lengthInMeters", 0))
     hav = cumulative_m(pts)[-1] if pts else 0.0
@@ -202,6 +221,7 @@ def parse_route(route: dict) -> ParsedRoute:
         arrival=summary.get("arrivalTime"),
         traffic_delay_s=float(summary.get("trafficDelayInSeconds", 0)),
         warnings=warnings,
+        non_truck_mi=non_truck_mi,
     )
 
 

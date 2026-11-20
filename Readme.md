@@ -102,7 +102,7 @@ open https://localhost               # accept the browser's certificate warning
 | `JOB_WORKER` | no | `external` | `thread` (default): the web process runs the weather jobs itself, starting on the first plan request. `external`: run `python manage.py run_jobs` as a separate process instead. |
 | `JOB_WINDOW_HOURS` | no | `72` | Hours of forecast each weather job fetches from the departure hour. Trips longer than this are refused with `422`. |
 | `WIND_METRIC` | no | `gust` | Which wind speed the thresholds use: `sustained` (default), `gust` or `max` (the larger of the two). |
-| `AVG_RISK_TIE_EPS` | no | `0.05` | How close two routes' average risk must be to count as a tie in the ranking. Default `0` (strict). |
+| `AVG_RISK_TIE_EPS` | no | `0` | Step size for comparing average risk in the ranking; routes in the same step count as equal and travel time decides. Default `0.05`; `0` compares exactly. |
 
 **Frontend (`frontend/.env`)**
 
@@ -189,12 +189,14 @@ resuming, the queue and the worker thread), the plan endpoints (routes at once, 
 weather between loads, errors), and logging,
 including a check that the API key never appears in log output.
 
-The backend suite has **351 tests**, up from 244 before the rain and rule coverage was added:
+The backend suite has **369 tests**, up from 244 before the rain and rule coverage was added:
 
 - `test_risk.py`: hazard boundaries, strict load cutoffs, hazard reasons and wind selection.
-- `test_ranking.py`: ranking priority, ties, explanations and distance-weighted scores.
+- `test_ranking.py`: ranking priority, the 0.05 average-risk steps, explanations and distance-weighted scores.
+- `test_tomtom_sections.py`: stretches where TomTom could not apply truck rules (short connections ignored).
 - `test_checkpoints.py`: spacing, segment totals, progress interpolation and ETAs.
-- `test_openmeteo_rain.py`: total rain, missing values, provider requests and old-cache refetching.
+- `test_openmeteo_rain.py`: rain as precipitation minus snow water, missing values, provider requests and
+  old-cache refetching.
 - `test_env.py`: the environment helpers behind the production settings (booleans, lists and the secret-key rule).
 
 The frontend tests cover the API client and its error messages, the plan reducer and the polling lifecycle

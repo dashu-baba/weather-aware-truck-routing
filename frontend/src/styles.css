@@ -651,6 +651,14 @@ progress {
   height: 100%;
 }
 
+.route-note {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .checkpoint-popup {
   font: 12px/1.6 ui-sans-serif, system-ui, sans-serif;
   color: var(--text);
@@ -816,6 +824,7 @@ progress {
   z-index: 1;
 }
 .place-pin:active { cursor: grabbing; }
+.place-pin svg { display: block; }
 .map-pick-hint {
   position: absolute;
   top: 70px;

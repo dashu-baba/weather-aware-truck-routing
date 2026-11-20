@@ -27,7 +27,7 @@ SERIES = {
     "wind_gusts_10m": [9.0],
     "wind_direction_10m": [180],
     "rain": [0.0],
-    "showers": [0.0],
+    "precipitation": [0.0],
     "snowfall": [0.0],
 }
 

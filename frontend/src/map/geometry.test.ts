@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkpointFeatures, pointAtTime, routeLines, routePieces } from './geometry';
+import { checkpointFeatures, fitPadding, pointAtTime, routeLines, routePieces } from './geometry';
 import type { Position } from '../api/types';
 import { scoredResult, scoredRoute } from '../hooks/__tests__/scoredFixtures';
 import { route } from '../hooks/__tests__/fixtures';
@@ -64,5 +64,17 @@ describe('route pieces and checkpoints', () => {
     expect(features[5].properties).toEqual({ id: 'B', idx: 0, risk: 0 });
     expect(checkpointFeatures(scoredResult, 50).features).toHaveLength(4);
     expect(checkpointFeatures(scoredResult, 99).features).toEqual([]);
+  });
+});
+
+describe('fitPadding', () => {
+  it('leaves room for the legend and time bar on wide maps', () => {
+    expect(fitPadding(1200)).toEqual({ top: 80, right: 260, bottom: 130, left: 60 });
+  });
+  it('shrinks on medium maps and keeps the bottom bar clear on phones', () => {
+    expect(fitPadding(700)).toEqual({ top: 70, right: 200, bottom: 120, left: 40 });
+    const phone = fitPadding(375);
+    expect(phone.left + phone.right).toBeLessThan(375 / 2);
+    expect(phone.bottom).toBeGreaterThanOrEqual(100);
   });
 });

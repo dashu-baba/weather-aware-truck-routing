@@ -45,8 +45,10 @@ WEATHER_KEY_DECIMALS = 1  # round lat/lon to 0.1 deg (~7 mi) for weather cache k
 # --- Risk -------------------------------------------------------------------
 # "sustained" -> wind_speed_10m, "gust" -> wind_gusts_10m, "max" -> max of both
 WIND_METRIC = os.getenv("WIND_METRIC", "sustained")
-# Tolerance when comparing average risk between routes (0 = strict brief).
-AVG_RISK_TIE_EPS = float(os.getenv("AVG_RISK_TIE_EPS", "0"))
+# Average risk is compared in steps of this size (0 = exact comparison). A plain average rewards longer
+# routes: the same bad stretch counts for less when spread over more miles.
+# Inside one step, travel time decides.
+AVG_RISK_TIE_EPS = float(os.getenv("AVG_RISK_TIE_EPS", "0.05"))
 
 # --- Heatmap corridor -----------------------------------------------------------
 HEATMAP_HOURS = 48

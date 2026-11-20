@@ -6,8 +6,9 @@ open-meteo Key facts:
     minute and retry on HTTP 429 (see OpenMeteoProvider).
   * Many locations per request (comma-separated latitude/longitude) -> list of results, same order.
   * Ask for mph and inches so values compare directly with the brief's thresholds.
-  * Hourly rain + showers (= total rain) and snowfall are totals for the preceding hour,
-    so they read as in/hr.
+  * Rain = precipitation - snowfall / 7: the liquid part of the total, so thunderstorm showers count and
+    snow is not counted twice. Precipitation, rain and snowfall are totals for the preceding hour, so they
+    read as in/hr. Snowfall is new-snow depth in inches, not water.
   * timezone=GMT -> every "time" string is UTC ("2026-11-20T14:00").
 """
 
@@ -27,7 +28,9 @@ from . import config
 
 logger = logging.getLogger(__name__)
 
-HOURLY_VARS = ("wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "rain", "showers", "snowfall")
+HOURLY_VARS = ("wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "precipitation", "rain", "snowfall")
+# Open-Meteo snowfall depth / 7 = its water equivalent ("7 cm snow = 10 mm precipitation water equivalent").
+SNOW_TO_WATER = 7.0
 Key = tuple[float, float]
 
 
@@ -210,10 +213,26 @@ class OpenMeteoProvider:
         raise RateLimited("Open-Meteo rate limit")  # pragma: no cover
 
 
+def liquid_rain(precip: float | None, rain: float | None, snow: float | None) -> float | None:
+    """Rain in in/hr: total precipitation minus the water in the snow, never below 0.
+
+    `precipitation` covers rain, showers and snow, so this counts thunderstorm showers and never counts snow
+    as rain. Without `precipitation`, fall back to `rain` (None when unknown).
+    """
+    if precip is None:
+        return rain
+    return max(0.0, precip - (snow or 0.0) / SNOW_TO_WATER)
+
+
 def _total_rain(series: dict, i: int) -> float | None:
-    """Preceding-hour total, retaining missing weather when neither component is known."""
-    values = [series[name][i] for name in ("rain", "showers") if name in series]
-    known = [value for value in values if value is not None]
+    """Liquid rain for hour i. Older series without `precipitation` fall back to rain + showers."""
+
+    def value(name: str) -> float | None:
+        return series[name][i] if name in series else None
+
+    if value("precipitation") is not None:
+        return liquid_rain(value("precipitation"), value("rain"), value("snowfall"))
+    known = [v for v in (value("rain"), value("showers")) if v is not None]
     return sum(known) if known else None
 
 

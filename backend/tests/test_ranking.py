@@ -20,7 +20,7 @@ DECISIONS = [
     (s(sev=100, high=200, avg=3, dur=9000), s(nt=10), "fewer No Travel miles"),
     (s(high=200, avg=3, dur=9000), s(sev=10), "fewer Severe miles"),
     (s(avg=2, dur=9000), s(high=10, avg=0.5), "fewer High miles"),
-    (s(avg=0.5, dur=9000), s(avg=0.6), "lower average risk"),
+    (s(avg=0.5, dur=9000), s(avg=0.6), "lower average risk (0.500 vs 0.600)"),
     (s(dur=3600), s(dur=4000), "shorter travel time"),
 ]
 
@@ -46,15 +46,46 @@ def test_full_tie_is_stable():
     ("epsilon", "order", "reason"),
     [
         (0.05, ["faster", "safer"], "shorter travel time"),
-        (0, ["safer", "faster"], "lower average risk"),
+        (0, ["safer", "faster"], "lower average risk (1.000 vs 1.030)"),
     ],
-    ids=["average-tolerance", "exact-average"],
+    ids=["average-step", "exact-average"],
 )
-def test_average_tie_tolerance(monkeypatch, epsilon, order, reason):
+def test_average_tie_step(monkeypatch, epsilon, order, reason):
     monkeypatch.setattr(config, "AVG_RISK_TIE_EPS", epsilon)
     scores = {"faster": s(avg=1.03, dur=3600), "safer": s(avg=1, dur=9000)}
     assert rank(scores) == order
     assert explain(scores[order[0]], scores[order[1]]) == reason
+
+
+def test_longer_detour_does_not_win_on_dilution(monkeypatch):
+    # Same 25 Moderate miles on both: 25/719.6 vs 25/790.4. The longer detour only looks safer.
+    monkeypatch.setattr(config, "AVG_RISK_TIE_EPS", 0.05)
+    scores = {"detour": s(avg=0.0316, dur=42240), "direct": s(avg=0.0347, dur=39180)}
+    assert rank(scores) == ["direct", "detour"]
+    assert explain(scores["direct"], scores["detour"]) == "shorter travel time"
+
+
+def test_clear_average_difference_still_decides(monkeypatch):
+    monkeypatch.setattr(config, "AVG_RISK_TIE_EPS", 0.05)
+    scores = {"stormy": s(avg=0.2, dur=3600), "clear": s(avg=0.0, dur=9000)}
+    assert rank(scores) == ["clear", "stormy"]
+    assert explain(scores["clear"], scores["stormy"]) == "lower average risk (0.000 vs 0.200)"
+
+
+def test_steps_give_a_consistent_order_for_three_routes(monkeypatch):
+    # A pairwise tolerance calls 0.00~0.04 and 0.04~0.08 ties but 0.00<0.08: no consistent order.
+    monkeypatch.setattr(config, "AVG_RISK_TIE_EPS", 0.05)
+    scores = {"high": s(avg=0.08, dur=1000), "mid": s(avg=0.04, dur=2000), "low": s(avg=0.0, dur=3000)}
+    for _ in range(3):
+        assert rank(scores) == ["mid", "low", "high"]
+        scores = dict(reversed(list(scores.items())))
+
+
+def test_default_step_is_005(monkeypatch):
+    import importlib
+
+    monkeypatch.delenv("AVG_RISK_TIE_EPS", raising=False)
+    assert importlib.reload(config).AVG_RISK_TIE_EPS == 0.05
 
 
 def test_only_route_explanation():

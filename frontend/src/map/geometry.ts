@@ -70,3 +70,11 @@ export function checkpointFeatures(result: PlanResult, interval: number): Featur
       }))),
   };
 }
+
+// Room around the routes when zooming to them, so the legend (top right) and the time bar (bottom) never cover
+// the start and end pins. Narrow maps get an even margin instead.
+export function fitPadding(width: number): { top: number; right: number; bottom: number; left: number } {
+  if (width >= 900) return { top: 80, right: 260, bottom: 130, left: 60 };
+  if (width >= 600) return { top: 70, right: 200, bottom: 120, left: 40 };
+  return { top: 60, right: 30, bottom: 110, left: 30 };
+}

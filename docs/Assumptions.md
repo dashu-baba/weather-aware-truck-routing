@@ -27,14 +27,19 @@ value there and update this page.
   The forecast model itself is about 11 km wide, so it cannot resolve a single mountain pass.
 - A checkpoint with **no forecast** (for example beyond the forecast range) is scored Low and reported in
   `meta.warnings`.
-- **Rain** is Open-Meteo `rain + showers`: `rain` covers large-scale systems and `showers` adds convective
-  thunderstorm rain, which can be the heaviest rain on a trip.
+- **Rain** is Open-Meteo `precipitation − snowfall / 7`. Open-Meteo's `rain` covers only large-scale systems and
+  leaves out convective thunderstorm showers, which can be the heaviest rain on a trip. `precipitation` is the
+  total of rain, showers and snow, and Open-Meteo's snowfall holds one seventh of its depth as water
+  (7 cm snow = 10 mm water). Subtracting the snow water leaves all the liquid rain, however a weather model splits
+  rain and showers, and snow is never counted twice. The result is never below 0.
+- **Snow** uses `snowfall`, the depth of new snow in inches per hour, which is what the brief's in/hr snow
+  thresholds describe.
 - Wind uses the **sustained** 10 m speed (`wind_speed_10m`). The brief's steps match sustained-wind scales.
   NWS gust thresholds are 15–18 mph higher: Wind Advisory uses sustained 31–39 mph or gusts 46–57 mph;
   High Wind Warning uses sustained ≥ 40 mph or gusts ≥ 58 mph. Applying the brief's table to gusts would rate
   ordinary breezy days High. Gusts are still shown in the popup and on the map.
   `WIND_METRIC=gust` or `max` changes this for the whole backend.
-- Open-Meteo rain, showers and snowfall are totals for the hour **before** each timestamp, read as in/hr.
+- Open-Meteo precipitation, rain and snowfall are totals for the hour **before** each timestamp, read as in/hr.
   Matching the nearest forecast hour means an ETA of 14:10 uses the 13:00–14:00 total. This is an accepted
   approximation of conditions at arrival.
 
@@ -46,7 +51,11 @@ value there and update this page.
   snow above 3.0 are exclusive).
 - A checkpoint's risk covers the stretch **before** it (`segment_mi`), and the first checkpoint covers none. Miles per
   level and average risk are weighted by that distance.
-- `AVG_RISK_TIE_EPS` (default 0, strict) sets how close two routes' average risk must be to count as a tie.
+- **Average risk is compared in steps of `AVG_RISK_TIE_EPS` (default 0.05).** A distance-weighted average spreads
+  the same bad stretch over more miles on a longer route, so a 70-mile detour through the same storm can score
+  0.032 against 0.035 and win. Inside one step the routes count as equal and travel time decides. Steps (rather
+  than a "within 0.05" tolerance) keep the order consistent with three routes. `AVG_RISK_TIE_EPS=0` restores the
+  exact comparison.
 
 ### Heatmap
 

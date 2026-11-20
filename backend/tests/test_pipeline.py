@@ -51,7 +51,10 @@ class FakeProvider:
                 "wind_gusts_10m": [round(w * 1.4, 1) for w in wind],
                 "wind_direction_10m": [(int(seed * 10) + h * 7) % 360 for h in range(hours)],
                 "rain": rain,
-                "showers": [0.0] * hours,
+                # Total precipitation = rain + snow water, so liquid rain comes out as `rain` again.
+                "precipitation": [
+                    None if r is None else round(r + sn / 7, 6) for r, sn in zip(rain, snow, strict=True)
+                ],
                 "snowfall": snow,
             }
         return out

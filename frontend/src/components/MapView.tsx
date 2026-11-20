@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { loadBasemap } from '../map/basemap';
 import type { PlanResult, RouteEntry } from '../api/types';
-import { checkpointFeatures, routeLines, routePieces } from '../map/geometry';
+import { checkpointFeatures, fitPadding, routeLines, routePieces } from '../map/geometry';
 import { addResultLayers, addRouteLayers, applyRouteFocus } from '../map/layers';
 import { checkpointPopup } from '../map/popup';
 import type { Heatfield, HeatLayer } from '../map/heatfield';
@@ -139,7 +139,7 @@ export function MapView({
 
     const bounds = new maplibregl.LngLatBounds();
     routes.forEach(route => route.geometry.forEach(point => bounds.extend(point)));
-    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, duration: 600 });
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: fitPadding(map.getContainer().clientWidth), duration: 600 });
     fitted.current = routes;
   }, [ready, routes]);
 

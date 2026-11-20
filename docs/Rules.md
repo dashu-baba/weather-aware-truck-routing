@@ -9,8 +9,9 @@
 **Values used**
 
 - **Wind:** sustained 10 m wind speed, not gusts (see [Assumptions](./Assumptions.md)).
-- **Rain:** Open-Meteo `rain + showers`, so thunderstorm rain counts.
-- **Snow:** Open-Meteo `snowfall`.
+- **Rain:** Open-Meteo `precipitation − snowfall / 7`, the liquid part of the total, so thunderstorm showers count
+  and melted snow is not counted again as rain.
+- **Snow:** Open-Meteo `snowfall`, the depth of new snow per hour (not its water content).
 
 Wind is in mph and precipitation in in/hr, at the forecast hour nearest the truck's ETA.
 
@@ -24,8 +25,13 @@ Wind is in mph and precipitation in in/hr, at the forecast hour nearest the truc
 1. fewest **No Travel** miles;
 2. fewest **Severe** miles;
 3. fewest **High** miles;
-4. lowest **average risk** (weighted by distance);
+4. lowest **average risk** (weighted by distance), compared in steps of 0.05;
 5. shortest **travel time**.
+
+Average risk is compared in 0.05 steps because a plain average rewards longer routes: the same bad stretch counts
+for less when it is spread over more miles. Two routes in the same step count as equal on average risk, so travel
+time decides. When average risk does decide, the reason shows both values, e.g. *"lower average risk (0.000 vs
+0.200)"*.
 
 **How the numbers are applied**
 - Wind means the **sustained** speed, not gusts.

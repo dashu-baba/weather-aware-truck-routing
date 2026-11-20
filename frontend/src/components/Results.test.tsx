@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { IntervalToggle } from './IntervalToggle';
 import { Recommendation } from './Recommendation';
-import { RouteCards } from './RouteCards';
+import { RouteCards, sourceLabel } from './RouteCards';
 import { localTime } from '../lib/format';
 import { scoredResult, scoredRoute } from '../hooks/__tests__/scoredFixtures';
 
@@ -48,10 +48,21 @@ describe('result components', () => {
       expect(html).toContain(label);
     }
     expect(html).toContain(localTime(scoredRoute.summary.arrival));
-    expect(html).toContain('2.63');
+    expect(html).toContain('2.625');
     expect(html).toContain('Risk miles: Low 0 mi; Moderate 5 mi; High 10 mi; Severe 15 mi; No Travel 10 mi');
     expect(html).toContain('width:37.5%');
     expect(renderCards(50)).not.toContain('NO TRAVEL');
+  });
+
+  it('shows each route note on its own card and names the route source plainly', () => {
+    const note = '1.8 mi of this route may not suit trucks (TomTom could not apply truck rules)';
+    const withNote = { ...scoredRoute, warnings: [note] };
+    const html = renderToStaticMarkup(<RouteCards routes={[withNote]} recommendation={null} interval={25} focusId={null} onFocus={() => {}} />);
+    expect(html).toContain(`<span class="route-note">${note}</span>`);
+    expect(renderCards()).not.toContain('route-note');
+    expect(sourceLabel('tomtom')).toBe('TomTom');
+    expect(sourceLabel('tomtom-via')).toBe('TomTom detour');
+    expect(sourceLabel('fake')).toBe('fake');
   });
 
   it('renders zero-mile bars and missing interval scores without NaN or crashes', () => {

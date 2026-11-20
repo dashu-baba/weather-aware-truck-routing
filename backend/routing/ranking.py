@@ -2,11 +2,13 @@
 
 Brief order:            1 fewest Severe miles, 2 fewest High miles, 3 lowest average risk, 4 shortest time
 Our extra rule 0:       fewest No Travel miles first (No Travel is worse than Severe; the brief omits it).
+Average risk is compared in AVG_RISK_TIE_EPS steps: a plain average spreads the same bad stretch over more
+miles on a longer route, so tiny gaps say more about length than weather. Inside a step, travel time decides.
 """
 
 from __future__ import annotations
 
-from functools import cmp_to_key
+import math
 
 from . import config
 from .risk import HIGH, NO_TRAVEL, SEVERE
@@ -39,27 +41,31 @@ def score_route(checkpoints: list[dict], duration_s: float) -> dict:
     }
 
 
-def _tolerance(key: str) -> float:
-    return config.AVG_RISK_TIE_EPS if key == "avg_risk" else 1e-9
+def _step(avg: float) -> float:
+    """Average risk as a step number (floor of avg / eps), or the exact value when eps is 0.
+
+    Steps keep the order consistent with three routes; a pairwise tolerance does not (0.00 ~ 0.04 ~ 0.08).
+    """
+    eps = config.AVG_RISK_TIE_EPS
+    return math.floor(avg / eps + 1e-9) if eps > 0 else avg
 
 
-def _cmp(a: dict, b: dict) -> int:
-    for key, _ in CRITERIA:
-        if abs(a[key] - b[key]) > _tolerance(key):
-            return -1 if a[key] < b[key] else 1
-    return 0
+def _key(score: dict) -> tuple:
+    return tuple(_step(score[key]) if key == "avg_risk" else score[key] for key, _ in CRITERIA)
 
 
 def rank(scores: dict[str, dict]) -> list[str]:
-    """Route ids, best first."""
-    return sorted(scores, key=cmp_to_key(lambda i, j: _cmp(scores[i], scores[j])))
+    """Route ids, best first. Sorting is stable, so full ties keep their input order."""
+    return sorted(scores, key=lambda route_id: _key(scores[route_id]))
 
 
 def explain(best: dict, runner_up: dict | None) -> str:
     """Which criterion decided the recommendation - show this in the UI."""
     if runner_up is None:
         return "only route available"
-    for key, label in CRITERIA:
-        if abs(best[key] - runner_up[key]) > _tolerance(key):
+    for (key, label), a, b in zip(CRITERIA, _key(best), _key(runner_up), strict=True):
+        if a != b:
+            if key == "avg_risk":
+                return f"{label} ({best[key]:.3f} vs {runner_up[key]:.3f})"
             return label
     return "tie on all criteria"

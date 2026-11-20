@@ -172,6 +172,15 @@ def fetch_weather(prepared: PreparedPlan, weather: WeatherStore) -> None:
     weather.prefetch(prepared.checkpoint_points() + prepared.cells, prepared.start, prepared.end)
 
 
+def _route_warnings(r) -> list[str]:
+    """Driver-facing notes for one route card (plan-wide notes stay in meta.warnings)."""
+    if r.non_truck_mi > 0:
+        return [
+            f"{r.non_truck_mi:.1f} mi of this route may not suit trucks (TomTom could not apply truck rules)"
+        ]
+    return []
+
+
 def route_entry(prepared: PreparedPlan, pr: PreparedRoute) -> dict:
     """A route as the API shows it before any scoring: summary and map geometry. Needs no weather."""
     r = pr.route
@@ -187,6 +196,7 @@ def route_entry(prepared: PreparedPlan, pr: PreparedRoute) -> dict:
             "departure": r.departure or prepared.depart_iso,
             "arrival": r.arrival or arrival_iso,
         },
+        "warnings": _route_warnings(r),
         "geometry": to_lonlat(r.points[i] for i in keep),
         "times": [round(pr.times[i]) for i in keep],  # lets the UI place a truck at slider time
     }

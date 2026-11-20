@@ -2,7 +2,7 @@ import type { PlanState } from '../hooks/planReducer';
 import TruckLoader from './TruckLoader';
 
 export function stageLabel(stage: string, queued: boolean): string {
-  if (queued) return 'Waiting for the weather worker…';
+  if (queued) return 'Checking weather along each route…';
   const checkpointStage = /^checkpoints_(\d+)$/.exec(stage);
   if (checkpointStage) return `Weather for ${checkpointStage[1]}-mile checkpoints`;
   switch (stage) {
@@ -36,7 +36,7 @@ export function PlanStatus({ state, interval = 25, onRetry }: Props) {
       {phase === 'weather' && plan && (
         <>
           <TruckLoader label={plan.progress.queued
-            ? 'Waiting for the weather worker…'
+            ? 'Checking weather along each route…'
             : `${stageLabel(plan.progress.stage, false)} · ${Math.round(plan.progress.percent)}%`} />
           <progress max="100" value={plan.progress.percent} aria-label="Weather progress" />
           <p className="status-note">Routes are ready. Checking weather along the way.</p>

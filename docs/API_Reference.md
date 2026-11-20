@@ -62,7 +62,7 @@ Limited to 120 requests a minute per client. A plan is kept for 24 hours.
   "status": "weather",
   "routes": [
     {
-      "id": "A", "label": "Route A", "source": "tomtom",
+      "id": "A", "label": "Route A", "source": "tomtom", "warnings": [],
       "summary": { "distance_mi": 786.1, "duration_s": 49210, "departure": "…", "arrival": "…" },
       "geometry": [[-96.797, 32.7767], "…"],
       "times": [0, 12, "…"]
@@ -82,6 +82,8 @@ Limited to 120 requests a minute per client. A plan is kept for 24 hours.
 |---|---|
 | `status` | `weather` (still fetching), `done`, or `failed` |
 | `routes` | The routes with map `geometry` (`[lon, lat]`) and `times` (seconds from departure for each point). Always present. |
+| `routes[].source` | `tomtom` for TomTom's own routes, `tomtom-via` for the extra detours requested through a via-point when TomTom returns fewer than three. |
+| `routes[].warnings` | Notes for that route's card. Today: `"X.X mi of this route may not suit trucks"` when TomTom could not apply truck rules (`travelMode=other`) on stretches of 0.5 mi or more. Shorter stretches, usually where a start, end or via-point joins a truck road, are ignored. |
 | `progress` | `done` of `total` weather locations. `stage` is `routes`, `checkpoints_25`, `checkpoints_50`, `checkpoints_10`, `heatmap` or `done`. `queued` is true while no worker has started the job. |
 | `partial` | Recommendations for each checkpoint interval (10, 25 and 50 miles) whose weather has arrived, so the best route can be shown early. `null` until the first interval is ready. |
 | `result` | The scored plan once `status` is `done`: `meta`, `origin`, `destination`, `routes` (with `by_interval` checkpoints and scores) and `recommendation`. **It does not contain the heatmap.** |
@@ -97,8 +99,8 @@ Each checkpoint in `result.routes[].by_interval[interval].checkpoints` has a `we
 | `wind_mph` | Sustained 10 m wind speed, mph |
 | `gust_mph` | Wind gust speed, mph |
 | `direction_deg` | Wind direction in degrees, measured clockwise from north |
-| `rain_in` | Total rain (`rain + showers`), in/hr, including thunderstorm showers |
-| `snow_in` | Snowfall, in/hr |
+| `rain_in` | Liquid rain (`precipitation − snowfall / 7`), in/hr, including thunderstorm showers |
+| `snow_in` | New-snow depth (`snowfall`), in/hr |
 | `time` | UTC forecast timestamp; precipitation totals cover the preceding hour |
 
 Weather measurements can be `null` when the provider has no value.
@@ -120,7 +122,7 @@ status endpoint. Returns `409` until the weather is in.
 }
 ```
 
-`vars.rain` is total rain (`rain + showers`), in/hr, matching checkpoint `weather.rain_in`.
+`vars.rain` is liquid rain (`precipitation − snowfall / 7`), in/hr, matching checkpoint `weather.rain_in`.
 
 Each layer in `vars` is indexed `[hour][cell]`, with `null` for cells outside the corridor or without a forecast.
 
