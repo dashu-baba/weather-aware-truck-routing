@@ -2,7 +2,7 @@ import type { CanvasSource, Map } from 'maplibre-gl';
 import type { Position } from '../api/types';
 
 // Wind particles, ported from the POC (poc/frontend/particles.js). They move with the sustained wind; the Gust layer
-// changes the background, never the velocity. Particles live in the heatmap's own pixel grid and are drawn on a
+// changes the background, never the velocity. Trails are dark navy to stand out on the light basemap. Particles live in the heatmap's own pixel grid and are drawn on a
 // canvas the map shows as a geographic image, so they pan and zoom with the map. Speed on screen is the same at
 // every zoom, brightness and width grow with wind speed, and new particles fade in. No requests are made.
 
@@ -19,6 +19,8 @@ export const SPEED_PX_PER_MPH = 0.04; // screen pixels per 60 Hz frame per mph
 const SPEED_BINS = 6;
 const FADE_FRAMES = 12;
 const SOURCE = 'wind-particles';
+// Dark trails pile up where many cross, so they are drawn lighter than the POC's white ones.
+const TRAIL_OPACITY = 0.35;
 
 type Group = { path: Path2D | null; count: number; strength: number; alphaSum: number; alpha: number };
 type Options = {
@@ -30,7 +32,7 @@ type Options = {
 };
 
 export function createWindParticles(field: WindField, options: Options = {}) {
-  const { debug = false, count = 3000, random = Math.random } = options;
+  const { debug = false, count = 1800, random = Math.random } = options;
   const createPath = options.createPath ?? (() => new Path2D());
   const resolution = Math.min(2, 2048 / Math.max(field.width, field.height));
   const canvas = options.createCanvas?.() ?? document.createElement('canvas');
@@ -116,7 +118,8 @@ export function createWindParticles(field: WindField, options: Options = {}) {
     for (const g of groups) {
       if (!g.count || !g.path) continue;
       g.alpha = g.alphaSum / g.count;
-      ctx.strokeStyle = `rgba(255,255,255,${g.alpha})`;
+      // Dark navy trails: the POC's white trails sat on a dark palette, but turn into haze on this light basemap.
+      ctx.strokeStyle = `rgba(3,33,62,${(g.alpha * TRAIL_OPACITY).toFixed(3)})`;
       ctx.lineWidth = (0.6 + g.strength / g.count) * dpr;
       ctx.stroke(g.path);
     }

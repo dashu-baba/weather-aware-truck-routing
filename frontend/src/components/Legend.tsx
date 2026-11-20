@@ -11,7 +11,7 @@ export function Legend({ layer }: { layer: HeatLayer }) {
           {label}
         </div>
       ))}
-      {(layer === 'wind' || layer === 'gust') && <p>Moving lines: sustained wind direction; brighter and faster lines, stronger wind.</p>}
+      {(layer === 'wind' || layer === 'gust') && <p>Moving lines: sustained wind direction; bolder and faster lines, stronger wind.</p>}
       <p>Background: weather at the slider hour. Lines and dots: risk at each checkpoint's ETA.</p>
     </div>
   );

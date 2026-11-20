@@ -72,7 +72,7 @@ describe('wind particle motion', () => {
     expect(measure(2).dx).toBeLessThan(0.1);
   });
 
-  it('draws stronger wind brighter', () => {
+  it('draws stronger wind bolder (more opaque)', () => {
     expect(measure(35).alpha).toBeGreaterThan(measure(5).alpha);
     expect(measure(35).alpha).toBeCloseTo(0.9, 9);
     expect(measure(5).alpha).toBeCloseTo(0.12 + (0.78 * 5) / 35, 9);
