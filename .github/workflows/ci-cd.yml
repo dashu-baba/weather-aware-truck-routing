@@ -182,13 +182,30 @@ jobs:
           # shellcheck disable=SC2029  # $GITHUB_SHA is meant to expand here, on the runner
           ssh deploy-target "cd /opt/truckroute && IMAGE_TAG=sha-$GITHUB_SHA ./deploy.sh"
 
+      # Runs on the server, so it checks nginx, TLS, Django and the React build without depending on how
+      # Cloudflare treats GitHub's IP addresses. --insecure: the origin certificate is not for "localhost".
+      - name: Smoke test (on the server)
+        run: |
+          # shellcheck disable=SC2029  # $APP_DOMAIN is meant to expand here, on the runner
+          ssh deploy-target "curl --fail --silent --show-error --insecure --retry 5 --retry-delay 3 --retry-all-errors -H 'Host: $APP_DOMAIN' https://localhost/api/health"
+          echo
+          # shellcheck disable=SC2029
+          ssh deploy-target "curl --fail --silent --show-error --insecure -H 'Host: $APP_DOMAIN' https://localhost/ | grep -q '<div id=\"root\"'"
+          echo "index.html served"
+
       - name: Clean up
         if: always()
         run: |
           ssh deploy-target 'docker logout ghcr.io' || true
           rm -rf "$RUNNER_TEMP/deploy" ~/.ssh/deploy_key ~/.ssh/known_hosts ~/.ssh/config
 
-      - name: Smoke test
+      # Warning only: Cloudflare can challenge or block requests from cloud IP ranges such as GitHub's runners.
+      - name: Public check through Cloudflare (warning only)
         run: |
-          curl --fail --silent --show-error --retry 10 --retry-delay 5 --retry-all-errors "https://$APP_DOMAIN/api/health"
-          curl --fail --silent --show-error "https://$APP_DOMAIN/" | grep -q '<div id="root"'
+          code=$(curl --silent --show-error --max-time 20 --retry 3 --retry-delay 5 --retry-all-errors \
+            -o /dev/null -D "$RUNNER_TEMP/headers.txt" -w '%{http_code}' "https://$APP_DOMAIN/api/health" || true)
+          echo "HTTP status: ${code:-none}"
+          cat "$RUNNER_TEMP/headers.txt" 2>/dev/null || true
+          if [ "$code" != "200" ]; then
+            echo "::warning::https://$APP_DOMAIN/api/health returned ${code:-no response} from the runner. The server check passed; see the Cloudflare Security Events."
+          fi

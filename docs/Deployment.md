@@ -89,7 +89,7 @@ A client therefore cannot spoof its address with its own `X-Forwarded-For` heade
 | `frontend` | every push and PR | `npm run lint`, `npm test`, `npm run build` |
 | `terraform` | every push and PR | `terraform fmt -check`, `init -backend=false`, `validate` (no cloud credentials) |
 | `images` | push to `main`, after the three above | Build the backend and web images for `linux/amd64` and push them to `ghcr.io` |
-| `deploy` | after `images` | Copy the compose file, `deploy.sh`, the `.env` and the certificate to the server, run `deploy.sh`, then smoke-test `https://<domain>/api/health` and `/` |
+| `deploy` | after `images` | Copy the compose file, `deploy.sh`, the `.env` and the certificate to the server, run `deploy.sh`, then smoke-test `/api/health` and `/` on the server over SSH (a failure fails the run). A last step requests `https://<domain>/api/health` through Cloudflare and only warns if it fails, because Cloudflare may challenge requests from GitHub's IP ranges |
 
 `deploy.sh` (on the server) pulls the images, runs `migrate`, starts the stack, waits up to 90 seconds for the
 backend health check, and records the tag in `/opt/truckroute/DEPLOYED_TAG`. If the backend does not become
