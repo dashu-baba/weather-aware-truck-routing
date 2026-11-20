@@ -1,5 +1,4 @@
-import { HEAT_LAYERS, type HeatLayer } from '../map/heatfield';
-import { RISK_COLORS } from '../map/palette';
+import { HEAT_LAYERS, legendColor, type HeatLayer } from '../map/heatfield';
 
 export function Legend({ layer }: { layer: HeatLayer }) {
   const { title, labels } = HEAT_LAYERS[layer];
@@ -8,7 +7,7 @@ export function Legend({ layer }: { layer: HeatLayer }) {
       <strong>{title}</strong>
       {labels.map((label, level) => (
         <div className="heat-legend__row" key={label}>
-          <span className="heat-legend__swatch" style={{ background: RISK_COLORS[level] }} aria-hidden="true" />
+          <span className="heat-legend__swatch" style={{ background: legendColor(layer, level) }} aria-hidden="true" />
           {label}
         </div>
       ))}

@@ -6,7 +6,7 @@ import { classifyPixel, levelFor } from './risk';
 describe('levelFor', () => {
   it.each([
     ['wind', 24.9, 0], ['wind', 25, 1], ['wind', 34.9, 1], ['wind', 35, 2], ['wind', 45, 3], ['wind', 54.9, 3], ['wind', 55, 4],
-    ['gust', 24.9, 0], ['gust', 25, 1], ['gust', 35, 2], ['gust', 45, 3], ['gust', 55, 4],
+    ['gust', 39.9, 0], ['gust', 40, 1], ['gust', 50, 2], ['gust', 60, 3], ['gust', 70, 4],
     ['rain', 0.099, 0], ['rain', 0.1, 1], ['rain', 0.25, 2], ['rain', 0.5, 3], ['rain', 1, 3], ['rain', 1.000001, 4],
     ['snow', 0.499, 0], ['snow', 0.5, 1], ['snow', 1, 2], ['snow', 2, 3], ['snow', 3, 3], ['snow', 3.000001, 4],
   ] as const)('%s %s is level %s', (hazard, value, level) => {

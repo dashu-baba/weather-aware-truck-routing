@@ -10,7 +10,7 @@ export type Level = 0 | 1 | 2 | 3 | 4;
 type Table = readonly [number, number, number, number, boolean];
 const TABLES: Record<Hazard, Table> = {
   wind: [25, 35, 45, 55, true],
-  gust: [25, 35, 45, 55, true],
+  gust: [40, 50, 60, 70, true], // display scale for the Gust layer only; risk never classifies gusts with it
   rain: [0.1, 0.25, 0.5, 1, false],
   snow: [0.5, 1, 2, 3, false],
 };

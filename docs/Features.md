@@ -20,8 +20,10 @@
   spacing or the focused route never calls the server.
 - **Corridor weather map.** A heatmap clipped to a polygon around all three routes, drawn under the routes with a
   dashed outline. A **0–48 hour forecast slider** and layers for **Risk, Wind, Gust, Rain and Snow** change what is
-  shown, and a legend explains the colours. Hovering shows the value under the cursor, for example *"Gust 41 mph ·
-  High · Fri 10:00 PM"*. Moving the slider or changing the layer never calls the server.
+  shown, and a legend explains the colours. Light rain and snow (below Moderate) show in blue that deepens with the
+  amount, so a snow band is visible before it becomes risky; dry areas stay clear. Gusts use their own scale, 15 mph
+  above the wind scale. Hovering shows the value under the cursor, for example *"Gust 41 mph · Moderate ·
+  Fri 10:00 PM"*. Moving the slider or changing the layer never calls the server.
 - **API keys never reach the browser.** Every third-party call goes through the Django API.
 
 See [Assumptions](./Assumptions.md) for what the planner assumes and does not model.

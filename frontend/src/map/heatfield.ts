@@ -9,9 +9,11 @@ import { LEVELS, RISK_COLORS } from './palette';
 export const HEAT_LAYERS = {
   risk: { title: 'Risk (with load rules)', labels: LEVELS },
   wind: { title: 'Wind (mph)', labels: ['<25', '25–<35', '35–<45', '45–<55', '≥55'] },
-  gust: { title: 'Gust (mph, wind scale)', labels: ['<25', '25–<35', '35–<45', '45–<55', '≥55'] },
-  rain: { title: 'Rain (in/hr)', labels: ['<0.10', '0.10–<0.25', '0.25–<0.50', '0.50–1.00', '>1.00'] },
-  snow: { title: 'Snow (in/hr)', labels: ['<0.5', '0.5–<1.0', '1.0–<2.0', '2.0–3.0', '>3.0'] },
+  // Gusts run well above sustained wind, so they get a scale 15 mph higher (NWS gust criteria sit 15–18 mph above
+  // the sustained ones). Risk itself uses sustained wind; this layer is for seeing where the gusts are.
+  gust: { title: 'Gust (mph, gust scale)', labels: ['<40', '40–<50', '50–<60', '60–<70', '≥70'] },
+  rain: { title: 'Rain (in/hr)', labels: ['Light <0.10', '0.10–<0.25', '0.25–<0.50', '0.50–1.00', '>1.00'] },
+  snow: { title: 'Snow (in/hr)', labels: ['Light <0.5', '0.5–<1.0', '1.0–<2.0', '2.0–3.0', '>3.0'] },
 } as const;
 export type HeatLayer = keyof typeof HEAT_LAYERS;
 export const HEAT_LAYER_KEYS = Object.keys(HEAT_LAYERS) as HeatLayer[];
@@ -27,6 +29,24 @@ export const latitudeAtY = (y: number) => ((2 * Math.atan(Math.exp(y)) - Math.PI
 const PALETTE = RISK_COLORS.map((hex, level) => [
   parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), level === 0 ? 18 : 140,
 ] as const);
+
+// Light rain and snow (below Moderate) are drawn in blue that strengthens with the amount, so a snow band is
+// visible before it is risky. Dry pixels stay clear. Wind and gust keep the faint Low tint: there is always wind.
+const LIGHT: Record<'rain' | 'snow', { trace: number; full: number; rgb: readonly [number, number, number] }> = {
+  rain: { trace: 0.005, full: 0.1, rgb: [37, 99, 235] },
+  snow: { trace: 0.02, full: 0.5, rgb: [56, 132, 214] },
+};
+
+function lightAlpha(layer: 'rain' | 'snow', value: number): number {
+  const { trace, full } = LIGHT[layer];
+  return value < trace ? 0 : Math.round(70 + 110 * Math.min(1, value / full));
+}
+
+// The swatch colour for one legend row.
+export function legendColor(layer: HeatLayer, level: number): string {
+  if (level === 0 && (layer === 'rain' || layer === 'snow')) return `rgb(${LIGHT[layer].rgb.join(', ')})`;
+  return RISK_COLORS[level];
+}
 
 type Stencil = readonly [number, number, number, number, number, number, number, number]; // 4 cell indexes, 4 weights
 
@@ -179,9 +199,18 @@ export function createHeatfield({ meta, heatmap }: HeatfieldInput, options: Heat
       if (!Number.isInteger(hour) || hour < 0 || hour >= hours) throw new Error(`Choose an hour from 0 to ${hours - 1}.`);
       const pixels = image.data;
       for (let i = 0; i < stencils.length; i++) {
-        const level = levelOfLayer(layer, valueAt(layer, hour, stencils[i]));
+        const value = valueAt(layer, hour, stencils[i]);
+        const level = levelOfLayer(layer, value);
         const offset = i * 4;
-        if (level == null) { pixels[offset + 3] = 0; continue; }
+        if (level == null || value == null) { pixels[offset + 3] = 0; continue; }
+        if (level === 0 && (layer === 'rain' || layer === 'snow')) {
+          const [r, g, b] = LIGHT[layer].rgb;
+          pixels[offset] = r;
+          pixels[offset + 1] = g;
+          pixels[offset + 2] = b;
+          pixels[offset + 3] = lightAlpha(layer, value);
+          continue;
+        }
         const [r, g, b, a] = PALETTE[level];
         pixels[offset] = r;
         pixels[offset + 1] = g;

@@ -39,6 +39,11 @@ value there and update this page.
   High Wind Warning uses sustained ≥ 40 mph or gusts ≥ 58 mph. Applying the brief's table to gusts would rate
   ordinary breezy days High. Gusts are still shown in the popup and on the map.
   `WIND_METRIC=gust` or `max` changes this for the whole backend.
+- The map's **Gust layer** uses a scale 15 mph above the wind scale (Moderate from 40 mph, High 50, Severe 60,
+  No Travel band 70), in line with that NWS gap. It is for seeing where gusts are; it does not feed the risk.
+- On the **Rain and Snow layers**, amounts below Moderate (rain under 0.10 in/hr, snow under 0.5 in/hr) are drawn in
+  blue that deepens with the amount, and trace amounts (under 0.005 and 0.02 in/hr) are left clear. They still score
+  Low.
 - Open-Meteo precipitation, rain and snowfall are totals for the hour **before** each timestamp, read as in/hr.
   Matching the nearest forecast hour means an ETA of 14:10 uses the 13:00–14:00 total. This is an accepted
   approximation of conditions at arrival.

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Heatmap } from '../api/types';
 import { levelFor } from '../lib/risk';
-import { createHeatfield, hoverLabel, latitudeAtY, mercatorY } from './heatfield';
+import { createHeatfield, hoverLabel, latitudeAtY, legendColor, mercatorY } from './heatfield';
 import { RISK_COLORS } from './palette';
 
 const HOURS = 48;
@@ -135,6 +135,34 @@ describe('rendering', () => {
     expect(pixel(low.browser.staged[0], low.field.width, 8, 8)[3]).toBe(18);
   });
 
+  it('shows light snow and rain in blue that strengthens with the amount, and leaves dry pixels clear', () => {
+    const light = build(heatmap({ snow: [0.3, 0.3, 0.3, 0.3] }));
+    light.field.renderFrame('snow', 0);
+    const lightSnow = pixel(light.browser.staged[0], light.field.width, 8, 8);
+    expect(lightSnow.slice(0, 3)).toEqual([56, 132, 214]);
+    expect(lightSnow[3]).toBeGreaterThan(80);
+    const trace = build(heatmap({ snow: [0.1, 0.1, 0.1, 0.1] }));
+    trace.field.renderFrame('snow', 0);
+    expect(pixel(trace.browser.staged[0], trace.field.width, 8, 8)[3]).toBeLessThan(lightSnow[3]);
+    const dry = build(heatmap({ snow: [0, 0, 0, 0] }));
+    dry.field.renderFrame('snow', 0);
+    expect(pixel(dry.browser.staged[0], dry.field.width, 8, 8)[3]).toBe(0);
+    const moderate = build(heatmap({ snow: [0.7, 0.7, 0.7, 0.7] }));
+    moderate.field.renderFrame('snow', 0);
+    expect(pixel(moderate.browser.staged[0], moderate.field.width, 8, 8)).toEqual([0xf2, 0xb7, 0x05, 140]);
+    const drizzle = build(heatmap({ rain: [0.05, 0.05, 0.05, 0.05] }));
+    drizzle.field.renderFrame('rain', 0);
+    expect(pixel(drizzle.browser.staged[0], drizzle.field.width, 8, 8).slice(0, 3)).toEqual([37, 99, 235]);
+  });
+
+  it('colours gusts on their own scale, 15 mph above the wind scale', () => {
+    const { field, browser } = build(heatmap({ gust: [45, 45, 45, 45] }));
+    field.renderFrame('gust', 0);
+    expect(pixel(browser.staged[0], field.width, 8, 8)).toEqual([0xf2, 0xb7, 0x05, 140]); // Moderate, not Severe
+    expect(legendColor('gust', 1)).toBe('#f2b705');
+    expect(legendColor('snow', 0)).toBe('rgb(56, 132, 214)');
+  });
+
   it('leaves pixels transparent where the layer has no value', () => {
     const { field, browser } = build(heatmap({ gust: [null, null, null, null] }));
     field.renderFrame('gust', 0);
@@ -238,7 +266,7 @@ describe('frame cache', () => {
 describe('hoverLabel', () => {
   const at = new Date('2026-11-21T04:00:00Z');
   it('shows speed, level and time for wind and gust', () => {
-    expect(hoverLabel('gust', 41.2, at)).toMatch(/^Gust 41 mph · High · /);
+    expect(hoverLabel('gust', 41.2, at)).toMatch(/^Gust 41 mph · Moderate · /);
     expect(hoverLabel('wind', 55, at)).toMatch(/^Wind 55 mph · No Travel · /);
   });
   it('shows rates with three decimals for rain and snow', () => {
