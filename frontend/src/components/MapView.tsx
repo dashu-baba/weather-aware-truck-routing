@@ -12,6 +12,7 @@ import { drawHeatFrame, hideHeatfield, showHeatfield } from '../map/heatLayers';
 import { attachHover, type HoverContext } from '../map/hover';
 import { isDebug } from '../hooks/useHeatfield';
 import { createTrucks } from '../map/trucks';
+import { attachWindParticles, createWindParticles, type WindParticles } from '../map/windParticles';
 import { parseUtc } from '../lib/format';
 import { createPlacePins } from '../map/places';
 import type { PlaceTarget, TripPlaces } from '../lib/places';
@@ -54,6 +55,7 @@ export function MapView({
   const pickContext = useRef({ target: pickTarget, onPick });
   const trucks = useRef<ReturnType<typeof createTrucks> | null>(null);
   const heatCanvas = useRef<HTMLCanvasElement | null>(null);
+  const wind = useRef<WindParticles | null>(null);
   const tooltip = useRef<HTMLDivElement>(null);
   const hoverContext = useRef<HoverContext | null>(null);
   const hover = useRef<ReturnType<typeof attachHover> | null>(null);
@@ -207,6 +209,13 @@ export function MapView({
     canvas.height = heatfield.height;
     heatCanvas.current = canvas;
     showHeatfield(map, heatfield, canvas);
+    const particles = createWindParticles(heatfield.windField(), { debug: isDebug() });
+    const detach = attachWindParticles(map, particles, heatfield.coordinates);
+    wind.current = particles;
+    return () => {
+      detach();
+      wind.current = null;
+    };
   }, [ready, heatfield]);
 
   // Moving the slider or switching layers only swaps the image's pixels, once per animation frame.
@@ -224,6 +233,13 @@ export function MapView({
       heatfield.prerenderNeighbours(heatLayer, shown);
     });
     return () => cancelAnimationFrame(frame);
+  }, [ready, heatfield, heatLayer, hour]);
+
+  // Wind particles run on the Wind and Gust layers, moved by the sustained wind at the slider hour.
+  useEffect(() => {
+    if (!ready || !heatfield) return;
+    const shown = Math.min(Math.max(0, hour), heatfield.hours - 1);
+    wind.current?.configure({ hour: shown, windLayer: heatLayer === 'wind' || heatLayer === 'gust' });
   }, [ready, heatfield, heatLayer, hour]);
 
   return (

@@ -1,6 +1,7 @@
 import type { Heatmap, PlanResult, Position } from '../api/types';
 import { classifyPixel, levelFor, type Hazard, type Level } from '../lib/risk';
 import { LEVELS, RISK_COLORS } from './palette';
+import type { WindField } from './windParticles';
 
 // The corridor weather image. It rasterises the heatmap grid in Web Mercator so it lines up with the basemap,
 // and keeps a small cache of finished frames so moving the time slider never recomputes the same hour twice.
@@ -236,6 +237,34 @@ export function createHeatfield({ meta, heatmap }: HeatfieldInput, options: Heat
     return canvas;
   }
 
+  // For the wind particles, built on first use: a pixel mask of the corridor (the same Mercator clip as the image),
+  // the pixels particles may start from, and the wind vector at any fractional pixel. Ported from the POC.
+  let wind: WindField | null = null;
+  function windField(): WindField {
+    if (wind) return wind;
+    const maskContext = createCanvas(width, height).getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+    maskContext.fill(polygonPath);
+    const mask = maskContext.getImageData(0, 0, width, height).data;
+    const seeds: number[] = [];
+    for (let i = 0; i < width * height; i++) if (mask[i * 4 + 3] > 127) seeds.push(i);
+    wind = {
+      width, height, seeds,
+      // Canvas pixels per radian north versus east, so particle headings stay true in Web Mercator.
+      northPixelScale: (height / (topY - bottomY)) / (width / ((east - west) * Math.PI / 180)),
+      containsPixel: (x, y) => x >= 0 && x < width && y >= 0 && y < height
+        && mask[(Math.floor(y) * width + Math.floor(x)) * 4 + 3] > 127,
+      vectorAtPixel(x, y, hour, out) {
+        const lat = latitudeAtY(topY + ((bottomY - topY) * y) / height);
+        const lon = west + ((east - west) * x) / width;
+        const s = stencil(lat, lon);
+        out[0] = interpolate(heatmap.vars.u?.[hour], s);
+        out[1] = interpolate(heatmap.vars.v?.[hour], s);
+        return out;
+      },
+    };
+    return wind;
+  }
+
   // While the browser is idle, render the hours the slider is most likely to reach next.
   function prerenderNeighbours(layer: HeatLayer, hour: number): void {
     if (idleTask != null) cancelIdle(idleTask);
@@ -252,7 +281,7 @@ export function createHeatfield({ meta, heatmap }: HeatfieldInput, options: Heat
   }
 
   return {
-    sample, renderFrame, contains, coordinates, width, height, hours, prerenderNeighbours, timings,
+    sample, windField, renderFrame, contains, coordinates, width, height, hours, prerenderNeighbours, timings,
     polygon: heatmap.polygon,
     start: heatmap.start, // the UTC time of forecast hour 0
     clearCache: () => cache.clear(),

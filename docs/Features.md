@@ -22,7 +22,10 @@
   dashed outline. A **0–48 hour forecast slider** and layers for **Risk, Wind, Gust, Rain and Snow** change what is
   shown, and a legend explains the colours. Light rain and snow (below Moderate) show in blue that deepens with the
   amount, so a snow band is visible before it becomes risky; dry areas stay clear. Gusts use their own scale, 15 mph
-  above the wind scale. Hovering shows the value under the cursor, for example *"Gust 41 mph · Moderate ·
+  above the wind scale. On the Wind and Gust layers, **wind particles** (ported from the POC) show direction and
+  speed: about 3,000 white trails move with the sustained wind at the slider hour, faster, brighter and wider where
+  the wind is stronger, at the same on-screen speed at every zoom. They are drawn on the map, so they pan and zoom
+  with it; they stay still for people who prefer reduced motion and pause in a hidden tab. Hovering shows the value under the cursor, for example *"Gust 41 mph · Moderate ·
   Fri 10:00 PM"*. Moving the slider or changing the layer never calls the server.
 - **API keys never reach the browser.** Every third-party call goes through the Django API.
 

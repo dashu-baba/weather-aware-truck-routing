@@ -38,6 +38,14 @@ function fakeBrowser() {
       save: () => undefined, restore: () => undefined,
       clip: (path: unknown) => clips.push(path),
       drawImage: () => undefined,
+      // The corridor mask for the wind particles: filling marks every pixel as inside (the test polygon is the box).
+      filled: false,
+      fill() { this.filled = true; },
+      getImageData(_x: number, _y: number, w: number, h: number) {
+        const data = new Uint8ClampedArray(w * h * 4);
+        if (this.filled) for (let i = 3; i < data.length; i += 4) data[i] = 255;
+        return { data, width: w, height: h };
+      },
     };
     created.push({ width, height });
     return { width, height, getContext: () => ctx } as unknown as HTMLCanvasElement;
@@ -153,6 +161,25 @@ describe('rendering', () => {
     const drizzle = build(heatmap({ rain: [0.05, 0.05, 0.05, 0.05] }));
     drizzle.field.renderFrame('rain', 0);
     expect(pixel(drizzle.browser.staged[0], drizzle.field.width, 8, 8).slice(0, 3)).toEqual([37, 99, 235]);
+  });
+
+  it('gives the particles a corridor mask, seed pixels and the wind vector at fractional pixels', () => {
+    const data = heatmap();
+    data.vars.u = data.vars.u.map(() => [30, 30, 30, 30]);
+    data.vars.v = data.vars.v.map(() => [0, 0, 0, 0]);
+    const { field } = build(data);
+    const wind = field.windField();
+    expect(field.windField()).toBe(wind); // built once
+    expect(wind.seeds.length).toBe(field.width * field.height);
+    expect(wind.containsPixel(8, 8)).toBe(true);
+    expect(wind.containsPixel(-1, 8)).toBe(false);
+    const [u, v] = wind.vectorAtPixel(8, 8, 0, [0, 0]);
+    expect(u).toBeCloseTo(30);
+    expect(v).toBeCloseTo(0);
+    data.vars.u[0] = [0, 40, 0, 40];
+    const fresh = build(data).field.windField();
+    expect(fresh.vectorAtPixel(8, 8, 0, [0, 0])[0]).toBeCloseTo(20); // the middle of 0 and 40
+    expect(fresh.northPixelScale).toBeGreaterThan(0);
   });
 
   it('colours gusts on their own scale, 15 mph above the wind scale', () => {
