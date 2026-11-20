@@ -9,6 +9,18 @@ scores the risk with load-aware rules, and recommends the safest route on an int
 
 **Live app:** https://truckroute.nowshad.dev
 
+## Screenshots
+
+Cheyenne, WY → Rawlins, WY with 42,000 lb of cargo, on the evening of a High Wind Warning for the I-80 summit,
+with checkpoints every 10 miles.
+
+| | |
+|---|---|
+| ![Ranked routes, the recommendation and the risk map](docs/images/overview.jpg) | ![Checkpoint popup showing the load rule raising wind risk to Severe](docs/images/checkpoint-popup.jpg) |
+| **Ranked routes.** Route A is recommended because it has fewer Severe miles. The panel names the rule that decided it. | **A checkpoint at the truck's ETA.** 36 mph sustained wind is High, but the 42,000 lb load raises it to Severe, and the popup says why. |
+| ![Wind layer with moving wind particles](docs/images/wind-layer.jpg) | ![Snow layer showing light snow in blue and a Moderate band](docs/images/snow-layer.jpg) |
+| **Wind layer.** The moving lines follow the sustained wind at the slider hour; the trucks show where each route is at that hour. | **Snow layer.** Light snow shows in blue and Moderate snow in yellow, over the 48-hour forecast. |
+
 ## Contents
  
 1. [Features](./docs/Features.md)
@@ -199,9 +211,10 @@ The backend suite has **369 tests**, up from 244 before the rain and rule covera
   old-cache refetching.
 - `test_env.py`: the environment helpers behind the production settings (booleans, lists and the secret-key rule).
 
-The frontend tests cover the API client and its error messages, the plan reducer and the polling lifecycle
-(timing, cancellation, retries and the heatmap fallback) with fake timers, the result components, route
-interpolation and risk pieces, the focus styling and the time formatting.
+The frontend suite has **183 tests**. They cover the API client and its error messages, the plan reducer and the
+polling lifecycle (timing, cancellation, retries and the heatmap fallback) with fake timers, the result components,
+route interpolation and risk pieces, the browser copy of the risk rules, the heatmap renderer and its layer scales,
+the wind particles, the focus styling and the time formatting.
 
 ## Deployment
 
@@ -222,7 +235,7 @@ frontend/
   src/api/           API client and types
   src/hooks/         plan state machine (reducer, polling lifecycle, usePlan)
   src/components/    TripForm, PlaceInput, PlanStatus, Recommendation, IntervalToggle, RouteCards, MapView
-  src/map/           basemap, route and checkpoint GeoJSON, MapLibre layers, popups, palette
+  src/map/           basemap, route and checkpoint GeoJSON, MapLibre layers, heatmap renderer, wind particles, popups, palette
   src/lib/           time and distance formatting, route ranking helpers
 docs/                features, rules, assumptions, architecture, tech stack, API reference, deployment
 deploy/              Docker Compose files, server deploy script, local certificate script

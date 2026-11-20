@@ -31,7 +31,7 @@ describe('PlanStatus', () => {
     expect(render()).not.toContain('Early pick:');
   });
 
-  it('does not promise result cards during phase 3 and offers Retry after failure', () => {
+  it('does not promise result cards while weather loads, and offers Retry after failure', () => {
     expect(render(donePlan())).not.toContain('Weather scoring complete');
     expect(render(donePlan())).not.toContain('compare your routes below');
     const failed = render(plan({ status: 'failed', error: 'Try again later.' }));

@@ -6,10 +6,16 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const css = read('./src/styles.css');
 const loader = read('./src/assets/truck-loader.svg');
 
-describe('section 15 visual contracts', () => {
-  it('uses the supplied PNG for the header and favicon and sets the page title', () => {
+describe('brand visual contracts', () => {
+  it('ships a small logo and a square favicon, and sets the page title', () => {
+    // A PNG's width and height are big-endian integers at bytes 16-23 of the IHDR chunk.
+    const size = png => [png.readUInt32BE(16), png.readUInt32BE(20)];
     const logo = readFileSync(new URL('./src/assets/truck-logo.png', import.meta.url));
-    expect(logo.equals(readFileSync(new URL('./public/favicon.png', import.meta.url)))).toBe(true);
+    const favicon = readFileSync(new URL('./public/favicon.png', import.meta.url));
+    expect(logo.length).toBeLessThan(200_000);
+    expect(size(logo)[0]).toBeGreaterThanOrEqual(400); // sharp in the 200 px loader on 2x screens
+    expect(size(favicon)).toEqual([64, 64]);
+    expect(favicon.length).toBeLessThan(16_000);
     const html = read('./index.html');
     expect(html).toContain('<link rel="icon" type="image/png" href="/favicon.png"');
     expect(html).toContain('<title>Truck Routing</title>');
