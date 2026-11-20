@@ -20,6 +20,12 @@ resource "aws_lightsail_static_ip" "app" {
 resource "aws_lightsail_static_ip_attachment" "app" {
   static_ip_name = aws_lightsail_static_ip.app.name
   instance_name  = aws_lightsail_instance.app.name
+
+  # The instance name stays the same when the server is replaced, so Terraform would not notice that the
+  # new server has no static IP. Redo the attachment whenever the instance is replaced.
+  lifecycle {
+    replace_triggered_by = [aws_lightsail_instance.app.id]
+  }
 }
 
 data "cloudflare_ip_ranges" "cf" {}
@@ -32,6 +38,11 @@ locals {
 # Replaces ALL port rules on the instance.
 resource "aws_lightsail_instance_public_ports" "app" {
   instance_name = aws_lightsail_instance.app.name
+
+  # Same reason: a replaced server starts with Lightsail's default firewall, so apply the rules again.
+  lifecycle {
+    replace_triggered_by = [aws_lightsail_instance.app.id]
+  }
 
   port_info {
     protocol   = "tcp"
