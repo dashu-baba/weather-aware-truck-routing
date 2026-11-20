@@ -1,6 +1,6 @@
 import type { StyleSpecification } from 'maplibre-gl';
 
-export const BASEMAP_URL = 'https://tiles.openfreemap.org/styles/positron';
+export const BASEMAP_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export const blankStyle = (): StyleSpecification => ({
   version: 8,

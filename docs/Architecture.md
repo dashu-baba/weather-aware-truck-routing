@@ -18,7 +18,7 @@ Basemap tiles ──────────────────────
 - **The one exception is basemap tiles.** OpenFreeMap needs no key, and sending map tiles through Django
   would only slow the map down.
 - **Light state:** Django's in-memory cache holds geocoding and reverse-geocoding results for a day. A small
-  SQLite database (`backend/db.sqlite3`) holds plan and weather-job records for the background plan flow, with
+  SQLite database (`backend/db.sqlite3` locally, `/data/db.sqlite3` in the Docker stack) holds plan and weather-job records for the background plan flow, with
   large JSON payloads in files under `PLAN_DATA_DIR`. Each plan and weather download is stored there, so a
   plan survives a restart and a repeated request is answered without calling TomTom again.
 - **Rate limiting:** DRF throttles each client (60 searches, 60 map-point lookups, 6 plans and 120 status polls

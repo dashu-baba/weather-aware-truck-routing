@@ -7,7 +7,7 @@ Enter an origin, a destination, a departure time and a load weight.
 The app finds three truck routes, checks the forecast **at the moment the truck will reach each point**, 
 scores the risk with load-aware rules, and recommends the safest route on an interactive weather map.
 
-**Live app:** 
+**Live app:** https://truckroute.nowshad.dev
 
 ## Contents
  
@@ -68,12 +68,13 @@ returns. The [API reference](./docs/API_Reference.md) has the request and every 
 ### Running with Docker
 
 The production stack (nginx, the API, the weather worker and the cleanup job) runs locally too. You need
-Docker and a TomTom key.
+Docker and a TomTom key. Stop it with `docker compose -f docker-compose.yml -f docker-compose.local.yml down`.
 
 ```bash
 cd deploy
 cp .env.example .env                 # set IMAGE_OWNER=local, APP_DOMAIN=localhost, your TomTom key,
                                      # DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+                                     # (the placeholder DJANGO_SECRET_KEY is fine for a local run)
 ./scripts/make-local-cert.sh         # self-signed certificate for https://localhost
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.yml -f docker-compose.local.yml run --rm backend python manage.py migrate --noinput
@@ -188,12 +189,13 @@ resuming, the queue and the worker thread), the plan endpoints (routes at once, 
 weather between loads, errors), and logging,
 including a check that the API key never appears in log output.
 
-The backend suite has **332 tests**, up from 244 before the rain and rule coverage was added:
+The backend suite has **351 tests**, up from 244 before the rain and rule coverage was added:
 
 - `test_risk.py`: hazard boundaries, strict load cutoffs, hazard reasons and wind selection.
 - `test_ranking.py`: ranking priority, ties, explanations and distance-weighted scores.
 - `test_checkpoints.py`: spacing, segment totals, progress interpolation and ETAs.
 - `test_openmeteo_rain.py`: total rain, missing values, provider requests and old-cache refetching.
+- `test_env.py`: the environment helpers behind the production settings (booleans, lists and the secret-key rule).
 
 The frontend tests cover the API client and its error messages, the plan reducer and the polling lifecycle
 (timing, cancellation, retries and the heatmap fallback) with fake timers, the result components, route

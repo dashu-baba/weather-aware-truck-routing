@@ -11,8 +11,9 @@ Creates the production host for the app:
 On first boot the server installs Docker, adds the deploy SSH key to the `ubuntu` user, creates `/opt/truckroute`
 and adds a 1 GB swap file. The application itself is deployed later by GitHub Actions.
 
-Not managed here: the Cloudflare zone's SSL mode. Set it to **Full** or **Full (strict)** by hand, because it
-affects every host on the domain.
+Not managed here: the Cloudflare SSL mode. It must be **Full (strict)** for this host. Set it with a Configuration
+Rule for the host name, or on the zone if nothing else on the domain needs a different mode (see
+[docs/Deployment.md](../../docs/Deployment.md#tls-and-cloudflare-settings)).
 
 ## One-time prerequisites
 
@@ -47,12 +48,25 @@ terraform validate
 
 ## Cost
 
-About **$12 per month** for the Lightsail plan, with the static IP and data transfer included. The state bucket
-and the DNS record cost cents or nothing. `terraform destroy` stops all charges.
+About **$12 per month** for the Lightsail plan, with the static IP and a data transfer allowance included. The state
+bucket and DNS are billed separately by AWS and Cloudflare; check their current pricing. `terraform destroy` stops
+the Lightsail charge.
+
+## After `apply`
+
+1. Wait a few minutes for the first boot (it installs Docker), then check
+   `ssh -i ~/.ssh/truckroute_deploy ubuntu@<static_ip> 'cloud-init status'` prints `status: done`.
+2. Save the server's host key: `ssh-keyscan -t ed25519 <static_ip> > ~/.ssh/truckroute_known_hosts`. It becomes the
+   `DEPLOY_KNOWN_HOSTS` GitHub secret.
+3. Continue with the GitHub setup in [docs/Deployment.md](../../docs/Deployment.md#first-time-setup).
 
 ## Notes
 
-- `user_data` changes are ignored after the server exists, so editing the boot script never replaces the
-  server. Change a running server over SSH, or destroy and recreate it.
+- `user_data` runs once, at first boot, and changes to it are ignored afterwards, so editing the boot script never
+  replaces the server. Change a running server over SSH, or replace it with
+  `terraform apply -replace=aws_lightsail_instance.app`.
+- Replacing the server deletes the data on it and gives it a new SSH host key (update `DEPLOY_KNOWN_HOSTS`). The IP
+  attachment and firewall rules are recreated with it.
+- The first-boot script runs under `sh`, not bash. Keep it POSIX (no `set -o pipefail`).
 - If `apply` rejects the number of firewall ranges, set `restrict_web_to_cloudflare = false`. Cloudflare still
   hides the origin; the firewall is just less strict.
