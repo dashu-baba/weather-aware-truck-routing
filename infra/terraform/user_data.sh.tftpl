@@ -1,5 +1,6 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+# Lightsail runs this under sh (dash on Ubuntu), not bash, so keep it POSIX: no "set -o pipefail".
+set -eu
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update

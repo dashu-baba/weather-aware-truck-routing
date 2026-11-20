@@ -74,3 +74,4 @@ infra/terraform/terraform.tfvars
 infra/terraform/backend.hcl
 deploy/.env
 deploy/certs/
+infra/terraform/tfplan
